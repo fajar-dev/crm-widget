@@ -2,7 +2,7 @@
 
 Copy-paste templates for creating a new module. Replace `Example`/`example` with your module name.
 
-## example.enum.ts
+## enums/example.enum.ts
 
 ```typescript
 export enum ExampleStatus {
@@ -11,12 +11,12 @@ export enum ExampleStatus {
 }
 ```
 
-## example.entity.ts
+## entities/example.entity.ts
 
 ```typescript
 import { Entity, Column } from 'typeorm';
-import { TenantAwareEntity } from '../../core/interfaces/tenant-aware.interface.ts';
-import { ExampleStatus } from './example.enum.ts';
+import { TenantAwareEntity } from '../../../core/interfaces/tenant-aware.interface.ts';
+import { ExampleStatus } from '../enums/example.enum.ts';
 
 @Entity('examples')
 export class Example extends TenantAwareEntity {
@@ -28,11 +28,11 @@ export class Example extends TenantAwareEntity {
 }
 ```
 
-## example.interface.ts
+## interfaces/example.interface.ts
 
 ```typescript
-import type { SerializedExample } from './example.serializer.ts';
-import type { PaginationQuery } from '../../core/validators/pagination.schema.ts';
+import type { SerializedExample } from '../serializers/example.serializer.ts';
+import type { PaginationQuery } from '../../../core/validators/pagination.schema.ts';
 
 export interface IExampleService {
   findAll(tenantId: string, query: PaginationQuery): Promise<{ data: SerializedExample[]; total: number }>;
@@ -53,11 +53,11 @@ export interface UpdateExampleInput {
 }
 ```
 
-## example.validator.ts
+## validators/example.validator.ts
 
 ```typescript
 import { z } from 'zod';
-import { ExampleStatus } from './example.enum.ts';
+import { ExampleStatus } from '../enums/example.enum.ts';
 
 export const createExampleSchema = z.object({
   name: z.string().min(1).max(200),
@@ -70,12 +70,12 @@ export type CreateExampleInput = z.infer<typeof createExampleSchema>;
 export type UpdateExampleInput = z.infer<typeof updateExampleSchema>;
 ```
 
-## example.repository.ts
+## repositories/example.repository.ts
 
 ```typescript
 import type { DataSource } from 'typeorm';
-import { BaseTenantRepository } from '../../core/repositories/base.repository.ts';
-import { Example } from './example.entity.ts';
+import { BaseTenantRepository } from '../../../core/repositories/base.repository.ts';
+import { Example } from '../entities/example.entity.ts';
 
 export class ExampleRepository extends BaseTenantRepository<Example> {
   constructor(dataSource: DataSource, tenantId: string) {
@@ -84,10 +84,10 @@ export class ExampleRepository extends BaseTenantRepository<Example> {
 }
 ```
 
-## example.serializer.ts
+## serializers/example.serializer.ts
 
 ```typescript
-import type { Example } from './example.entity.ts';
+import type { Example } from '../entities/example.entity.ts';
 
 export interface SerializedExample {
   id: string;
@@ -117,11 +117,11 @@ export class ExampleSerializer {
 ## example.service.ts
 
 ```typescript
-import type { IExampleService } from './example.interface.ts';
-import type { ExampleRepository } from './example.repository.ts';
-import { ExampleSerializer, type SerializedExample } from './example.serializer.ts';
+import type { IExampleService } from './interfaces/example.interface.ts';
+import type { ExampleRepository } from './repositories/example.repository.ts';
+import { ExampleSerializer, type SerializedExample } from './serializers/example.serializer.ts';
 import type { PaginationQuery } from '../../core/validators/pagination.schema.ts';
-import type { CreateExampleInput, UpdateExampleInput } from './example.validator.ts';
+import type { CreateExampleInput, UpdateExampleInput } from './validators/example.validator.ts';
 
 export class ExampleService implements IExampleService {
   constructor(private readonly repository: ExampleRepository) {}
@@ -159,8 +159,8 @@ export class ExampleService implements IExampleService {
 ```typescript
 import { Hono } from 'hono';
 import type { ExampleService } from './example.service.ts';
-import { createExampleSchema, updateExampleSchema } from './example.validator.ts';
-import type { CreateExampleInput, UpdateExampleInput } from './example.validator.ts';
+import { createExampleSchema, updateExampleSchema } from './validators/example.validator.ts';
+import type { CreateExampleInput, UpdateExampleInput } from './validators/example.validator.ts';
 import { paginationSchema, type PaginationQuery } from '../../core/validators/pagination.schema.ts';
 import { validate } from '../../core/helpers/validator.ts';
 import { ApiResponse } from '../../core/helpers/response.ts';

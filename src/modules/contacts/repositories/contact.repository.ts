@@ -1,7 +1,7 @@
 import type { DataSource } from 'typeorm';
-import { BaseTenantRepository, type PaginatedResult } from '../../core/repositories/base.repository.ts';
-import { Contact } from './contact.entity.ts';
-import type { ContactStatus } from './contact.enum.ts';
+import { BaseTenantRepository, type PaginatedResult } from '../../../core/repositories/base.repository.ts';
+import { Contact } from '../entities/contact.entity.ts';
+import type { ContactStatus } from '../enums/contact.enum.ts';
 
 export class ContactRepository extends BaseTenantRepository<Contact> {
   constructor(dataSource: DataSource, tenantId: string) {

@@ -1,8 +1,8 @@
 import 'reflect-metadata';
 import { DataSource } from 'typeorm';
-import { User } from '../../src/modules/auth/user.entity.ts';
-import { RefreshToken } from '../../src/modules/auth/refresh-token.entity.ts';
-import { Contact } from '../../src/modules/contacts/contact.entity.ts';
+import { User } from '../../src/modules/auth/entities/user.entity.ts';
+import { RefreshToken } from '../../src/modules/auth/entities/refresh-token.entity.ts';
+import { Contact } from '../../src/modules/contacts/entities/contact.entity.ts';
 
 let testDataSource: DataSource | null = null;
 

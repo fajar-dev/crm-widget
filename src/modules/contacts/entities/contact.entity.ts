@@ -1,6 +1,6 @@
 import { Entity, Column, Index } from 'typeorm';
-import { TenantAwareEntity } from '../../core/interfaces/tenant-aware.interface.ts';
-import { ContactStatus, ContactSource } from './contact.enum.ts';
+import { TenantAwareEntity } from '../../../core/interfaces/tenant-aware.interface.ts';
+import { ContactStatus, ContactSource } from '../enums/contact.enum.ts';
 
 @Entity('contacts')
 export class Contact extends TenantAwareEntity {

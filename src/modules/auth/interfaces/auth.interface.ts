@@ -1,4 +1,4 @@
-import type { UserRole } from '../../core/interfaces/auth.interface.ts';
+import type { UserRole } from '../../../core/interfaces/auth.interface.ts';
 
 /**
  * Auth token pair returned on login/register.

@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import type { ContactService } from './contact.service.ts';
-import { createContactSchema, updateContactSchema } from './contact.validator.ts';
-import type { CreateContactInput, UpdateContactInput } from './contact.validator.ts';
+import { createContactSchema, updateContactSchema } from './validators/contact.validator.ts';
+import type { CreateContactInput, UpdateContactInput } from './validators/contact.validator.ts';
 import { paginationSchema, type PaginationQuery } from '../../core/validators/pagination.schema.ts';
 import { validate } from '../../core/helpers/validator.ts';
 import { ApiResponse } from '../../core/helpers/response.ts';

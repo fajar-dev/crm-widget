@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import type { AuthService } from './auth.service.ts';
-import { registerSchema, loginSchema, refreshTokenSchema } from './auth.validator.ts';
-import type { RegisterInput, LoginInput, RefreshTokenInput } from './auth.validator.ts';
+import { registerSchema, loginSchema, refreshTokenSchema } from './validators/auth.validator.ts';
+import type { RegisterInput, LoginInput, RefreshTokenInput } from './validators/auth.validator.ts';
 import { validate } from '../../core/helpers/validator.ts';
 import { ApiResponse } from '../../core/helpers/response.ts';
 import { authMiddleware } from '../../core/middlewares/auth.middleware.ts';

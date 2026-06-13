@@ -1,6 +1,6 @@
-import type { IContactService, CreateContactInput, UpdateContactInput } from './contact.interface.ts';
-import type { ContactRepository } from './contact.repository.ts';
-import { ContactSerializer, type SerializedContact } from './contact.serializer.ts';
+import type { IContactService, CreateContactInput, UpdateContactInput } from './interfaces/contact.interface.ts';
+import type { ContactRepository } from './repositories/contact.repository.ts';
+import { ContactSerializer, type SerializedContact } from './serializers/contact.serializer.ts';
 import type { PaginationQuery } from '../../core/validators/pagination.schema.ts';
 
 export class ContactService implements IContactService {

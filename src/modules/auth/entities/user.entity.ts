@@ -1,6 +1,6 @@
 import { Entity, Column, Index } from 'typeorm';
-import { TenantAwareEntity } from '../../core/interfaces/tenant-aware.interface.ts';
-import { UserRole } from '../../core/interfaces/auth.interface.ts';
+import { TenantAwareEntity } from '../../../core/interfaces/tenant-aware.interface.ts';
+import { UserRole } from '../../../core/interfaces/auth.interface.ts';
 
 /**
  * User entity for authentication.

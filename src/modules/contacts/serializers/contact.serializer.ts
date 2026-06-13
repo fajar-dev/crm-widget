@@ -1,5 +1,5 @@
-import type { Contact } from './contact.entity.ts';
-import type { ContactStatus, ContactSource } from './contact.enum.ts';
+import type { Contact } from '../entities/contact.entity.ts';
+import type { ContactStatus, ContactSource } from '../enums/contact.enum.ts';
 
 export interface SerializedContact {
   id: string;

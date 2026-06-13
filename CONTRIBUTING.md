@@ -10,21 +10,27 @@ Follow these steps to add a new module (e.g., `deals`).
 mkdir src/modules/deals
 ```
 
-### 2. Create Files (flat structure)
+### 2. Create Files (hybrid structure)
 
-Create all files at the module root:
+Controller, service, and module at the module root. Supporting files in subdirectories:
 
 ```
 src/modules/deals/
-├── deal.enum.ts          # Enumerations
-├── deal.entity.ts        # TypeORM entity
-├── deal.interface.ts     # Type contracts
-├── deal.validator.ts     # Zod schemas
-├── deal.repository.ts    # Data access
-├── deal.serializer.ts    # DTO transformer
-├── deal.service.ts       # Business logic
-├── deal.controller.ts    # Route handler (class-based)
-└── deal.module.ts        # DI wiring
+├── entities/
+│   └── deal.entity.ts        # TypeORM entity
+├── repositories/
+│   └── deal.repository.ts    # Data access
+├── serializers/
+│   └── deal.serializer.ts    # DTO transformer
+├── validators/
+│   └── deal.validator.ts     # Zod schemas
+├── interfaces/
+│   └── deal.interface.ts     # Type contracts
+├── enums/
+│   └── deal.enum.ts          # Enumerations
+├── deal.service.ts           # Business logic
+├── deal.controller.ts        # Route handler (class-based)
+└── deal.module.ts            # DI wiring
 ```
 
 ### 3. Register in Container

@@ -9,7 +9,7 @@ This changelog is designed to be readable by both humans and AI models.
 
 ### Changed — Major Refactoring
 
-- **Flat module structure**: Removed subdirectories (`controllers/`, `services/`, `repositories/`, etc.) — all module files now sit at the module root
+- **Hybrid module structure**: Supporting files (entities, repositories, serializers, validators, interfaces, enums) in subdirectories; controller, service, module at root
 - **Plain Hono**: Replaced `OpenAPIHono` + `@hono/zod-openapi` with plain `Hono` + `@hono/zod-validator`
 - **Swagger YAML**: API docs now defined in `docs/swagger.yml` (static OpenAPI 3.1.0) instead of programmatic generation
 - **OOP Controllers**: Controllers are now classes with `router` property and constructor DI, instead of factory functions returning OpenAPIHono apps
@@ -36,7 +36,7 @@ This changelog is designed to be readable by both humans and AI models.
 
 - `@hono/zod-openapi` dependency
 - `validationHook` from `core/helpers/validator.ts`
-- All module subdirectories (`controllers/`, `services/`, `repositories/`, `entities/`, `enums/`, `interfaces/`, `serializers/`, `validators/`)
+- Old-style module subdirectories (`controllers/`, `services/`) — replaced by hybrid structure with `entities/`, `repositories/`, `serializers/`, `validators/`, `interfaces/`, `enums/` subdirectories
 
 ### Technical Context (for AI agents)
 

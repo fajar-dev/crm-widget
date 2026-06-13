@@ -1,6 +1,6 @@
-import type { ContactStatus, ContactSource } from './contact.enum.ts';
-import type { SerializedContact } from './contact.serializer.ts';
-import type { PaginationQuery } from '../../core/validators/pagination.schema.ts';
+import type { ContactStatus, ContactSource } from '../enums/contact.enum.ts';
+import type { SerializedContact } from '../serializers/contact.serializer.ts';
+import type { PaginationQuery } from '../../../core/validators/pagination.schema.ts';
 
 export interface IContactService {
   findAll(tenantId: string, query: PaginationQuery): Promise<{ data: SerializedContact[]; total: number }>;

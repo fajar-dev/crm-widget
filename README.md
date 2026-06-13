@@ -48,8 +48,8 @@ src/
 ├── routes/api.ts         # Route aggregator
 ├── docs/swagger.yml      # OpenAPI 3.1.0 spec
 └── modules/
-    ├── auth/             # Auth module (flat)
-    └── contacts/         # Contacts module (flat)
+    ├── auth/             # Auth module (hybrid)
+    └── contacts/         # Contacts module (hybrid)
 
 tests/
 ├── setup.ts              # Test config

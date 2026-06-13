@@ -1,5 +1,5 @@
 import type { DataSource, Repository } from 'typeorm';
-import { RefreshToken } from './refresh-token.entity.ts';
+import { RefreshToken } from '../entities/refresh-token.entity.ts';
 
 /**
  * Refresh token repository with tenant scoping.

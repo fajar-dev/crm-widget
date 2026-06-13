@@ -1,8 +1,8 @@
 import type { DataSource } from 'typeorm';
-import { User } from '../../src/modules/auth/user.entity.ts';
-import { Contact } from '../../src/modules/contacts/contact.entity.ts';
+import { User } from '../../src/modules/auth/entities/user.entity.ts';
+import { Contact } from '../../src/modules/contacts/entities/contact.entity.ts';
 import { UserRole } from '../../src/core/interfaces/auth.interface.ts';
-import { ContactStatus, ContactSource } from '../../src/modules/contacts/contact.enum.ts';
+import { ContactStatus, ContactSource } from '../../src/modules/contacts/enums/contact.enum.ts';
 import { TEST_TENANT_ID, TEST_USER_ID } from './test-jwt.ts';
 
 /**

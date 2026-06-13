@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { UserRole } from '../../core/interfaces/auth.interface.ts';
+import { UserRole } from '../../../core/interfaces/auth.interface.ts';
 
 export const registerSchema = z.object({
   firstName: z.string().min(1).max(100),

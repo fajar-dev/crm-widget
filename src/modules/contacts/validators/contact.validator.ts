@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ContactStatus, ContactSource } from './contact.enum.ts';
+import { ContactStatus, ContactSource } from '../enums/contact.enum.ts';
 
 export const createContactSchema = z.object({
   firstName: z.string().min(1).max(100),

@@ -1,6 +1,6 @@
 import type { DataSource } from 'typeorm';
-import { BaseTenantRepository } from '../../core/repositories/base.repository.ts';
-import { User } from './user.entity.ts';
+import { BaseTenantRepository } from '../../../core/repositories/base.repository.ts';
+import { User } from '../entities/user.entity.ts';
 
 /**
  * User repository with tenant-scoped queries.

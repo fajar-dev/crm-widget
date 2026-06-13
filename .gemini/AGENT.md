@@ -8,7 +8,7 @@
 
 ## MUST Follow
 
-1. **Flat module structure** — All module files at root level (no subdirectories)
+1. **Hybrid module structure** — Controller, service, module at root; supporting files (entities, repositories, serializers, validators, interfaces, enums) in subdirectories
 2. **Class-based controllers** — Controllers are classes with `router` property
 3. **Container DI** — Register services in `src/container.ts`
 4. **Plain Hono** — Do NOT use `OpenAPIHono` or `@hono/zod-openapi`
@@ -22,7 +22,7 @@
 ## MUST NOT
 
 1. Do NOT use `OpenAPIHono`, `createRoute`, or `.openapi()` on Zod schemas
-2. Do NOT create subdirectories inside modules (no `controllers/`, `services/`, etc.)
+2. Do NOT create extra subdirectories beyond the standard ones (`entities/`, `repositories/`, `serializers/`, `validators/`, `interfaces/`, `enums/`)
 3. Do NOT import auth types from `modules/auth/` in core — use `core/interfaces/auth.interface.ts`
 4. Do NOT use default exports (except `src/index.ts`)
 5. Do NOT skip the Container — always wire dependencies through `container.ts`
@@ -31,15 +31,15 @@
 ## File Naming
 
 ```
-{module}.controller.ts
-{module}.service.ts
-{module}.repository.ts
-{module}.entity.ts
-{module}.serializer.ts
-{module}.validator.ts
-{module}.interface.ts
-{module}.enum.ts
-{module}.module.ts
+{module}.controller.ts              # At module root
+{module}.service.ts                  # At module root
+{module}.module.ts                   # At module root
+entities/{module}.entity.ts          # In subdirectory
+repositories/{module}.repository.ts  # In subdirectory
+serializers/{module}.serializer.ts   # In subdirectory
+validators/{module}.validator.ts     # In subdirectory
+interfaces/{module}.interface.ts     # In subdirectory
+enums/{module}.enum.ts               # In subdirectory
 ```
 
 ## Adding a New Module

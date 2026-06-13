@@ -1,9 +1,9 @@
 import { sign, verify } from 'hono/jwt';
 import type { JwtPayload } from '../../core/interfaces/auth.interface.ts';
-import type { AuthTokens, IAuthService, RegisterInput, LoginInput } from './auth.interface.ts';
-import type { UserRepository } from './user.repository.ts';
-import type { RefreshTokenRepository } from './refresh-token.repository.ts';
-import { AuthSerializer, type SerializedUser } from './auth.serializer.ts';
+import type { AuthTokens, IAuthService, RegisterInput, LoginInput } from './interfaces/auth.interface.ts';
+import type { UserRepository } from './repositories/user.repository.ts';
+import type { RefreshTokenRepository } from './repositories/refresh-token.repository.ts';
+import { AuthSerializer, type SerializedUser } from './serializers/auth.serializer.ts';
 import { UnauthorizedException, ConflictException } from '../../core/exceptions/base.ts';
 import { config } from '../../config/config.ts';
 

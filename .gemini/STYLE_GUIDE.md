@@ -20,7 +20,7 @@ import { ApiResponse } from '../../core/helpers/response.ts';
 
 // 3. Local module files
 import type { ContactService } from './contact.service.ts';
-import { createContactSchema } from './contact.validator.ts';
+import { createContactSchema } from './validators/contact.validator.ts';
 ```
 
 ## Controller Pattern

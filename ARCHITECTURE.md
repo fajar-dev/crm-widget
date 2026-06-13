@@ -2,7 +2,7 @@
 
 ## Overview
 
-Clean Architecture with row-level multi-tenancy. All modules follow a flat file structure with class-based OOP and constructor dependency injection.
+Clean Architecture with row-level multi-tenancy. All modules follow a hybrid file structure with class-based OOP and constructor dependency injection.
 
 ## Layer Architecture
 
@@ -66,21 +66,27 @@ export function createContactModule(container: Container) {
 - **Enforcement**: `BaseTenantRepository` auto-filters all queries by `tenantId`
 - **Security**: JWT payload `tenantId` overrides header in auth middleware
 
-## Module Structure (Flat)
+## Module Structure (Hybrid)
 
-Each module contains all files at root level — no subdirectories:
+Controller, service, and module files sit at the module root. Supporting files (entities, repositories, serializers, validators, interfaces, enums) live in subdirectories:
 
 ```
 modules/contacts/
-├── contact.controller.ts    # Class-based route handler
-├── contact.service.ts       # Business logic
-├── contact.repository.ts    # Data access
-├── contact.entity.ts        # TypeORM entity
-├── contact.serializer.ts    # DTO transformer
-├── contact.validator.ts     # Zod schemas
-├── contact.interface.ts     # Type contracts
-├── contact.enum.ts          # Enumerations
-└── contact.module.ts        # DI wiring
+├── entities/
+│   └── contact.entity.ts        # TypeORM entity
+├── repositories/
+│   └── contact.repository.ts    # Data access
+├── serializers/
+│   └── contact.serializer.ts    # DTO transformer
+├── validators/
+│   └── contact.validator.ts     # Zod schemas
+├── interfaces/
+│   └── contact.interface.ts     # Type contracts
+├── enums/
+│   └── contact.enum.ts          # Enumerations
+├── contact.controller.ts        # Class-based route handler
+├── contact.service.ts           # Business logic
+└── contact.module.ts            # DI wiring
 ```
 
 ## API Documentation

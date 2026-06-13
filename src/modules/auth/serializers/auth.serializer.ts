@@ -1,4 +1,4 @@
-import type { User } from './user.entity.ts';
+import type { User } from '../entities/user.entity.ts';
 
 /**
  * Serialized user data safe for API responses.

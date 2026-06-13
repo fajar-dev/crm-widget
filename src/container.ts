@@ -1,8 +1,8 @@
 import type { DataSource } from 'typeorm';
-import { UserRepository } from './modules/auth/user.repository.ts';
-import { RefreshTokenRepository } from './modules/auth/refresh-token.repository.ts';
+import { UserRepository } from './modules/auth/repositories/user.repository.ts';
+import { RefreshTokenRepository } from './modules/auth/repositories/refresh-token.repository.ts';
 import { AuthService } from './modules/auth/auth.service.ts';
-import { ContactRepository } from './modules/contacts/contact.repository.ts';
+import { ContactRepository } from './modules/contacts/repositories/contact.repository.ts';
 import { ContactService } from './modules/contacts/contact.service.ts';
 
 /**
