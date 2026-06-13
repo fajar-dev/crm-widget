@@ -29,8 +29,8 @@ src/modules/deals/
 ├── enums/
 │   └── deal.enum.ts          # Enumerations
 ├── deal.service.ts           # Business logic
-├── deal.controller.ts        # Route handler (class-based)
-└── deal.module.ts            # DI wiring
+├── deal.controller.ts        # Handler methods (class-based)
+└── deal.module.ts            # DI wiring (returns Controller)
 ```
 
 ### 3. Register in Container
@@ -47,24 +47,52 @@ dealService(tenantId: string): DealService {
 }
 ```
 
-### 4. Mount in Router
+### 4. Create Route File
+
+Create `src/routes/api/deals.ts`:
+
+```typescript
+import { Hono } from 'hono';
+import type { Container } from '../../container.ts';
+import { createDealModule } from '../../modules/deals/deal.module.ts';
+import { createDealSchema, updateDealSchema } from '../../modules/deals/validators/deal.validator.ts';
+import { paginationSchema } from '../../core/validators/pagination.schema.ts';
+import { validate } from '../../core/helpers/validator.ts';
+import { authMiddleware } from '../../core/middlewares/auth.middleware.ts';
+
+export function dealRoutes(container: Container): Hono {
+  const router = new Hono();
+  const controller = createDealModule(container);
+
+  router.use('/*', authMiddleware);
+  router.get('/', validate('query', paginationSchema), (c) => controller.index(c));
+  router.get('/:id', (c) => controller.show(c));
+  router.post('/', validate('json', createDealSchema), (c) => controller.store(c));
+  router.put('/:id', validate('json', updateDealSchema), (c) => controller.update(c));
+  router.delete('/:id', (c) => controller.destroy(c));
+
+  return router;
+}
+```
+
+### 5. Mount in Router
 
 ```typescript
 // src/routes/api.ts
-import { createDealModule } from '../modules/deals/deal.module.ts';
+import { dealRoutes } from './api/deals.ts';
 
-api.route('/deals', createDealModule(container));
+api.route('/deals', dealRoutes(container));
 ```
 
-### 5. Update swagger.yml
+### 6. Update swagger.yml
 
 Add paths and schemas to `docs/swagger.yml`.
 
-### 6. Add Tests
+### 7. Add Tests
 
 Create `tests/modules/deals/deal.test.ts` with integration tests.
 
-### 7. Update CHANGELOG.md
+### 8. Update CHANGELOG.md
 
 Add entry under the latest version.
 
@@ -73,8 +101,9 @@ Add entry under the latest version.
 - [ ] Entity extends `TenantAwareEntity`
 - [ ] Repository extends `BaseTenantRepository`
 - [ ] Validator uses Zod (no `.openapi()` calls)
-- [ ] Controller is class-based with `router` property
-- [ ] Module wires controller via Container
+- [ ] Controller is class-based with public handler methods (no router)
+- [ ] Module wires controller via Container, returns Controller instance
+- [ ] Route file created in `routes/api/`
 - [ ] Registered in `container.ts`
 - [ ] Mounted in `routes/api.ts`
 - [ ] Swagger paths added to `docs/swagger.yml`

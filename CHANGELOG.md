@@ -12,7 +12,11 @@ This changelog is designed to be readable by both humans and AI models.
 - **Hybrid module structure**: Supporting files (entities, repositories, serializers, validators, interfaces, enums) in subdirectories; controller, service, module at root
 - **Plain Hono**: Replaced `OpenAPIHono` + `@hono/zod-openapi` with plain `Hono` + `@hono/zod-validator`
 - **Swagger YAML**: API docs now defined in `docs/swagger.yml` (static OpenAPI 3.1.0) instead of programmatic generation
-- **OOP Controllers**: Controllers are now classes with `router` property and constructor DI, instead of factory functions returning OpenAPIHono apps
+- **OOP Controllers**: Controllers now only have handler methods — no router property, no route definitions
+- **Routes separated from controllers**: Route definitions moved to `routes/api/` directory
+- **module.ts handles DI wiring**: Returns Controller instance directly (not router)
+- **User module extracted from Auth**: User management is now a separate module from authentication
+- **`serializeMany` renamed to `collection`**: Serializer method for multiple entities
 - **Container DI**: Centralized `Container` class in `src/container.ts` replaces per-module factory functions
 - **Shared auth types**: Moved `UserRole`, `JwtPayload`, `AuthUser` from `modules/auth/` to `core/interfaces/auth.interface.ts`
 - **Validation**: `validate()` helper replaces `validationHook` from zod-openapi
@@ -42,10 +46,11 @@ This changelog is designed to be readable by both humans and AI models.
 
 **Architecture Pattern**:
 ```
-Container(DataSource)
-  → serviceFactory(tenantId) = Repository + Service
-  → Controller(serviceFactory).router
-  → Module(container) → Hono sub-app
+Container (DI) → module.ts (wiring) → Controller (handler methods)
+                                            ↑
+routes/api/xxx.ts (route definitions) ──────┘
+
+Flow: routes/api.ts → routes/api/auth.ts → createAuthModule(container) → AuthController
 ```
 
 **Key Dependencies**:

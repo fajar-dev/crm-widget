@@ -25,26 +25,24 @@ import { createContactSchema } from './validators/contact.validator.ts';
 
 ## Controller Pattern
 
+Controllers only contain public handler methods — no router, no route definitions:
+
 ```typescript
 export class ExampleController {
-  public readonly router: Hono;
+  constructor(private readonly serviceFactory: (tenantId: string) => ExampleService) {}
 
-  constructor(private readonly serviceFactory: (tenantId: string) => ExampleService) {
-    this.router = new Hono();
-    this.registerRoutes();
-  }
-
-  private registerRoutes(): void {
-    this.router.use('/*', authMiddleware);
-    this.router.get('/', validate('query', paginationSchema), (c) => this.index(c));
-    // ...
-  }
-
-  private async index(c: any) {
+  async index(c: any) {
     const tenantId = c.get('tenantId');
     const query = c.req.valid('query') as PaginationQuery;
-    // ...
+    const service = this.serviceFactory(tenantId);
+    const result = await service.findAll(tenantId, query);
+    return ApiResponse.paginated(c, result.data, result.total, query.page, query.perPage);
   }
+
+  async show(c: any) { /* ... */ }
+  async store(c: any) { /* ... */ }
+  async update(c: any) { /* ... */ }
+  async destroy(c: any) { /* ... */ }
 }
 ```
 
@@ -57,7 +55,7 @@ export class ExampleService implements IExampleService {
   async findAll(_tenantId: string, query: PaginationQuery) {
     // Always return serialized DTOs
     const result = await this.repository.paginate(...);
-    return { data: ExampleSerializer.serializeMany(result.data), total: result.total };
+    return { data: ExampleSerializer.collection(result.data), total: result.total };
   }
 }
 ```
@@ -79,15 +77,43 @@ export type UpdateInput = z.infer<typeof updateSchema>;
 
 ## Module Pattern
 
+Modules handle DI wiring and return a Controller instance (not a router):
+
 ```typescript
 import type { Container } from '../../container.ts';
 import { ExampleController } from './example.controller.ts';
 
-export function createExampleModule(container: Container) {
-  const controller = new ExampleController(
-    (tenantId) => container.exampleService(tenantId)
-  );
-  return controller.router;
+export function createExampleModule(container: Container): ExampleController {
+  return new ExampleController((tenantId) => container.exampleService(tenantId));
+}
+```
+
+## Route Pattern
+
+Route definitions live in `routes/api/` and map URLs to controller methods:
+
+```typescript
+// src/routes/api/examples.ts
+import { Hono } from 'hono';
+import type { Container } from '../../container.ts';
+import { createExampleModule } from '../../modules/example/example.module.ts';
+import { createExampleSchema, updateExampleSchema } from '../../modules/example/validators/example.validator.ts';
+import { paginationSchema } from '../../core/validators/pagination.schema.ts';
+import { validate } from '../../core/helpers/validator.ts';
+import { authMiddleware } from '../../core/middlewares/auth.middleware.ts';
+
+export function exampleRoutes(container: Container): Hono {
+  const router = new Hono();
+  const controller = createExampleModule(container);
+
+  router.use('/*', authMiddleware);
+  router.get('/', validate('query', paginationSchema), (c) => controller.index(c));
+  router.get('/:id', (c) => controller.show(c));
+  router.post('/', validate('json', createExampleSchema), (c) => controller.store(c));
+  router.put('/:id', validate('json', updateExampleSchema), (c) => controller.update(c));
+  router.delete('/:id', (c) => controller.destroy(c));
+
+  return router;
 }
 ```
 

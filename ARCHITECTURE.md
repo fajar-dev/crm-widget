@@ -7,21 +7,29 @@ Clean Architecture with row-level multi-tenancy. All modules follow a hybrid fil
 ## Layer Architecture
 
 ```
-Request → Middleware → Controller → Service → Repository → Database
-                                       ↓
-                                   Serializer → Response
+Request → Routes → Middleware → Controller → Service → Repository → Database
+                                                ↓
+                                            Serializer → Response
+```
+
+```
+DataSource → Container → Module → Controller ← Routes
 ```
 
 ### Layers
 
 | Layer | Responsibility | Pattern |
 |-------|---------------|--------|
-| Controller | Route handling, request validation | Class with `router` property |
+| Route | HTTP route definitions, maps URLs to controller methods | Functions in `routes/api/` |
+| Module | DI wiring, creates controller with injected service factory | `createXxxModule()` returns Controller |
+| Controller | Handler methods only (no router, no route definitions) | Class with public async methods |
 | Service | Business logic, orchestration | Class with constructor DI |
 | Repository | Data access, tenant scoping | Extends `BaseTenantRepository` |
-| Serializer | Entity → DTO transformation | Static methods |
+| Serializer | Entity → DTO transformation | Static methods (`serialize`, `collection`) |
 | Validator | Input validation schemas | Zod schemas |
 | Interface | Type contracts, DI abstractions | TypeScript interfaces |
+
+> **Note**: Controllers have NO router property — they only contain handler methods. Route definitions live in `routes/api/` files.
 
 ## Dependency Injection
 
@@ -44,18 +52,34 @@ export class Container {
 ### Flow
 
 ```
-DataSource → Container → Module → Controller(serviceFactory) → Service(repo)
+Container (DI) → module.ts (wiring) → Controller (handler methods)
+                                            ↑
+routes/api/xxx.ts (route definitions) ──────┘
 ```
 
-Modules receive the container and wire their controllers:
+Flow: `routes/api.ts` → `routes/api/contacts.ts` → `createContactModule(container)` → `ContactController`
+
+Modules receive the container and return the controller instance:
 
 ```typescript
-// Module
-export function createContactModule(container: Container) {
-  const controller = new ContactController(
-    (tenantId) => container.contactService(tenantId)
-  );
-  return controller.router;
+// Module — returns Controller, NOT router
+export function createContactModule(container: Container): ContactController {
+  return new ContactController((tenantId) => container.contactService(tenantId));
+}
+```
+
+Route files define HTTP routes and use the module to get the controller:
+
+```typescript
+// routes/api/contacts.ts
+export function contactRoutes(container: Container): Hono {
+  const router = new Hono();
+  const controller = createContactModule(container);
+
+  router.use('/*', authMiddleware);
+  router.get('/', validate('query', paginationSchema), (c) => controller.index(c));
+  // ...
+  return router;
 }
 ```
 
@@ -68,7 +92,7 @@ export function createContactModule(container: Container) {
 
 ## Module Structure (Hybrid)
 
-Controller, service, and module files sit at the module root. Supporting files (entities, repositories, serializers, validators, interfaces, enums) live in subdirectories:
+Controller, service, and module files sit at the module root. Supporting files (entities, repositories, serializers, validators, interfaces, enums) live in subdirectories. Route definitions live in `routes/api/`:
 
 ```
 modules/contacts/
@@ -77,17 +101,24 @@ modules/contacts/
 ├── repositories/
 │   └── contact.repository.ts    # Data access
 ├── serializers/
-│   └── contact.serializer.ts    # DTO transformer
+│   └── contact.serializer.ts    # DTO transformer (serialize + collection)
 ├── validators/
 │   └── contact.validator.ts     # Zod schemas
 ├── interfaces/
 │   └── contact.interface.ts     # Type contracts
 ├── enums/
 │   └── contact.enum.ts          # Enumerations
-├── contact.controller.ts        # Class-based route handler
+├── contact.controller.ts        # Handler methods only (no router)
 ├── contact.service.ts           # Business logic
-└── contact.module.ts            # DI wiring
+└── contact.module.ts            # DI wiring (returns Controller)
+
+routes/api/
+├── auth.ts                      # Auth route definitions
+├── contacts.ts                  # Contact route definitions
+└── users.ts                     # User route definitions
 ```
+
+> **Note**: User module is separate from Auth module. Auth handles authentication (login, register, tokens). User handles user profile and management.
 
 ## API Documentation
 

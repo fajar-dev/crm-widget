@@ -45,10 +45,16 @@ src/
 ├── container.ts          # DI Container
 ├── config/               # Environment, database, MinIO
 ├── core/                 # Shared: exceptions, middlewares, helpers
-├── routes/api.ts         # Route aggregator
+├── routes/
+│   ├── api.ts            # Route aggregator
+│   └── api/              # Route definitions per module
+│       ├── auth.ts
+│       ├── contacts.ts
+│       └── users.ts
 ├── docs/swagger.yml      # OpenAPI 3.1.0 spec
 └── modules/
     ├── auth/             # Auth module (hybrid)
+    ├── users/            # User module (hybrid)
     └── contacts/         # Contacts module (hybrid)
 
 tests/

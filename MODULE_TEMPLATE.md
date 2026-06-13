@@ -108,7 +108,7 @@ export class ExampleSerializer {
     };
   }
 
-  static serializeMany(entities: Example[]): SerializedExample[] {
+  static collection(entities: Example[]): SerializedExample[] {
     return entities.map(ExampleSerializer.serialize);
   }
 }
@@ -130,7 +130,7 @@ export class ExampleService implements IExampleService {
     const result = await this.repository.paginate(query.page, query.perPage, {
       order: { [query.sortBy]: query.sortOrder } as any,
     });
-    return { data: ExampleSerializer.serializeMany(result.data), total: result.total };
+    return { data: ExampleSerializer.collection(result.data), total: result.total };
   }
 
   async findById(_tenantId: string, id: string): Promise<SerializedExample> {
@@ -157,33 +157,15 @@ export class ExampleService implements IExampleService {
 ## example.controller.ts
 
 ```typescript
-import { Hono } from 'hono';
 import type { ExampleService } from './example.service.ts';
-import { createExampleSchema, updateExampleSchema } from './validators/example.validator.ts';
 import type { CreateExampleInput, UpdateExampleInput } from './validators/example.validator.ts';
-import { paginationSchema, type PaginationQuery } from '../../core/validators/pagination.schema.ts';
-import { validate } from '../../core/helpers/validator.ts';
+import type { PaginationQuery } from '../../core/validators/pagination.schema.ts';
 import { ApiResponse } from '../../core/helpers/response.ts';
-import { authMiddleware } from '../../core/middlewares/auth.middleware.ts';
 
 export class ExampleController {
-  public readonly router: Hono;
+  constructor(private readonly serviceFactory: (tenantId: string) => ExampleService) {}
 
-  constructor(private readonly serviceFactory: (tenantId: string) => ExampleService) {
-    this.router = new Hono();
-    this.registerRoutes();
-  }
-
-  private registerRoutes(): void {
-    this.router.use('/*', authMiddleware);
-    this.router.get('/', validate('query', paginationSchema), (c) => this.index(c));
-    this.router.get('/:id', (c) => this.show(c));
-    this.router.post('/', validate('json', createExampleSchema), (c) => this.store(c));
-    this.router.put('/:id', validate('json', updateExampleSchema), (c) => this.update(c));
-    this.router.delete('/:id', (c) => this.destroy(c));
-  }
-
-  private async index(c: any) {
+  async index(c: any) {
     const tenantId = c.get('tenantId');
     const query = c.req.valid('query') as PaginationQuery;
     const service = this.serviceFactory(tenantId);
@@ -191,7 +173,7 @@ export class ExampleController {
     return ApiResponse.paginated(c, result.data, result.total, query.page, query.perPage);
   }
 
-  private async show(c: any) {
+  async show(c: any) {
     const tenantId = c.get('tenantId');
     const id = c.req.param('id');
     const service = this.serviceFactory(tenantId);
@@ -199,7 +181,7 @@ export class ExampleController {
     return ApiResponse.success(c, entity);
   }
 
-  private async store(c: any) {
+  async store(c: any) {
     const tenantId = c.get('tenantId');
     const body = c.req.valid('json') as CreateExampleInput;
     const service = this.serviceFactory(tenantId);
@@ -207,7 +189,7 @@ export class ExampleController {
     return ApiResponse.created(c, entity, 'Example created successfully');
   }
 
-  private async update(c: any) {
+  async update(c: any) {
     const tenantId = c.get('tenantId');
     const id = c.req.param('id');
     const body = c.req.valid('json') as UpdateExampleInput;
@@ -216,7 +198,7 @@ export class ExampleController {
     return ApiResponse.success(c, entity, 'Example updated successfully');
   }
 
-  private async destroy(c: any) {
+  async destroy(c: any) {
     const tenantId = c.get('tenantId');
     const id = c.req.param('id');
     const service = this.serviceFactory(tenantId);
@@ -232,10 +214,33 @@ export class ExampleController {
 import type { Container } from '../../container.ts';
 import { ExampleController } from './example.controller.ts';
 
-export function createExampleModule(container: Container) {
-  const controller = new ExampleController(
-    (tenantId) => container.exampleService(tenantId)
-  );
-  return controller.router;
+export function createExampleModule(container: Container): ExampleController {
+  return new ExampleController((tenantId) => container.exampleService(tenantId));
+}
+```
+
+## routes/api/example.ts
+
+```typescript
+import { Hono } from 'hono';
+import type { Container } from '../../container.ts';
+import { createExampleModule } from '../../modules/example/example.module.ts';
+import { createExampleSchema, updateExampleSchema } from '../../modules/example/validators/example.validator.ts';
+import { paginationSchema } from '../../core/validators/pagination.schema.ts';
+import { validate } from '../../core/helpers/validator.ts';
+import { authMiddleware } from '../../core/middlewares/auth.middleware.ts';
+
+export function exampleRoutes(container: Container): Hono {
+  const router = new Hono();
+  const controller = createExampleModule(container);
+
+  router.use('/*', authMiddleware);
+  router.get('/', validate('query', paginationSchema), (c) => controller.index(c));
+  router.get('/:id', (c) => controller.show(c));
+  router.post('/', validate('json', createExampleSchema), (c) => controller.store(c));
+  router.put('/:id', validate('json', updateExampleSchema), (c) => controller.update(c));
+  router.delete('/:id', (c) => controller.destroy(c));
+
+  return router;
 }
 ```
