@@ -1,185 +1,133 @@
-# Coding Style Guide
+# Style Guide
 
-## TypeScript Conventions
+## TypeScript
 
-### Naming
+- Strict mode enabled
+- `import type` for type-only imports
+- No `any` unless unavoidable (document with comment)
+- Prefer `interface` over `type` for object shapes
 
-| Type | Convention | Example |
-|------|-----------|---------|
-| File | `kebab-case.type.ts` | `contact.entity.ts` |
-| Class | `PascalCase` | `ContactService` |
-| Interface | `PascalCase with I prefix` | `IContactService` |
-| Enum | `PascalCase` | `ContactStatus` |
-| Enum value | `UPPER_SNAKE_CASE` | `COLD_CALL` |
-| Function | `camelCase` | `createContactModule` |
-| Variable | `camelCase` | `tenantId` |
-| Constant | `UPPER_SNAKE_CASE` | `MAX_RETRIES` |
-| DB column | `snake_case` | `first_name` |
-| DB table | `snake_case plural` | `contacts` |
-
-### Import Order
+## Import Order
 
 ```typescript
 // 1. External packages
-import { OpenAPIHono, createRoute, z } from '@hono/zod-openapi';
-import { Entity, Column } from 'typeorm';
+import { Hono } from 'hono';
+import type { DataSource } from 'typeorm';
 
-// 2. Config imports
-import { config } from '../../config/config.ts';
-
-// 3. Core imports
-import { BaseTenantRepository } from '../../core/repositories/base.repository.ts';
+// 2. Core modules
+import { validate } from '../../core/helpers/validator.ts';
 import { ApiResponse } from '../../core/helpers/response.ts';
 
-// 4. Module imports (relative)
-import { ContactRepository } from './repositories/contact.repository.ts';
-
-// 5. Type-only imports
-import type { DataSource } from 'typeorm';
-import type { Context } from 'hono';
+// 3. Local module files
+import type { ContactService } from './contact.service.ts';
+import { createContactSchema } from './contact.validator.ts';
 ```
 
-### Entity Pattern
+## Controller Pattern
 
 ```typescript
-import { Entity, Column } from 'typeorm';
-import { TenantAwareEntity } from '../../../core/interfaces/tenant-aware.interface.ts';
+export class ExampleController {
+  public readonly router: Hono;
 
-@Entity('table_name_plural')
-export class EntityName extends TenantAwareEntity {
-  @Column({ type: 'varchar', length: 100, name: 'column_name' })
-  propertyName!: string;
-
-  @Column({ type: 'varchar', length: 255, nullable: true })
-  optionalField?: string;
-
-  @Column({
-    type: 'enum',
-    enum: SomeEnum,
-    default: SomeEnum.DEFAULT_VALUE,
-  })
-  enumField!: SomeEnum;
-}
-```
-
-### Service Pattern
-
-```typescript
-export class XxxService implements IXxxService {
-  constructor(
-    private readonly repository: XxxRepository,
-  ) {}
-
-  async findAll(tenantId: string, query: PaginationQuery) {
-    const result = await this.repository.paginate(query.page, query.perPage);
-    return {
-      data: XxxSerializer.serializeMany(result.data),
-      total: result.total,
-    };
+  constructor(private readonly serviceFactory: (tenantId: string) => ExampleService) {
+    this.router = new Hono();
+    this.registerRoutes();
   }
 
-  async findById(tenantId: string, id: string) {
-    const entity = await this.repository.findByIdOrFail(id, 'Xxx');
-    return XxxSerializer.serialize(entity);
+  private registerRoutes(): void {
+    this.router.use('/*', authMiddleware);
+    this.router.get('/', validate('query', paginationSchema), (c) => this.index(c));
+    // ...
   }
 
-  async create(tenantId: string, data: CreateXxxInput) {
-    const entity = await this.repository.create(data);
-    return XxxSerializer.serialize(entity);
-  }
-
-  async update(tenantId: string, id: string, data: UpdateXxxInput) {
-    const entity = await this.repository.update(id, data, 'Xxx');
-    return XxxSerializer.serialize(entity);
-  }
-
-  async delete(tenantId: string, id: string): Promise<void> {
-    await this.repository.delete(id, 'Xxx');
-  }
-}
-```
-
-### Controller Pattern
-
-```typescript
-export function createXxxController(serviceFactory: (tenantId: string) => XxxService) {
-  const app = new OpenAPIHono<{
-    Variables: {
-      tenantId: string;
-      user: { id: string; tenantId: string; email: string; role: string };
-    };
-  }>();
-
-  app.use('/*', authMiddleware);
-
-  const listRoute = createRoute({
-    method: 'get',
-    path: '/',
-    tags: ['Xxx'],
-    summary: 'List all items',
-    security: [{ Bearer: [] }],
-    request: { query: paginationSchema },
-    responses: { /* ... */ },
-  });
-
-  app.openapi(listRoute, async (c) => {
+  private async index(c: any) {
     const tenantId = c.get('tenantId');
-    const query = c.req.valid('query');
-    const service = serviceFactory(tenantId);
-    const result = await service.findAll(tenantId, query);
-    return ApiResponse.paginated(c, result.data, result.total, query.page, query.perPage);
-  }, validationHook);
-
-  return app;
+    const query = c.req.valid('query') as PaginationQuery;
+    // ...
+  }
 }
 ```
 
-### Response Helpers
+## Service Pattern
+
+```typescript
+export class ExampleService implements IExampleService {
+  constructor(private readonly repository: ExampleRepository) {}
+
+  async findAll(_tenantId: string, query: PaginationQuery) {
+    // Always return serialized DTOs
+    const result = await this.repository.paginate(...);
+    return { data: ExampleSerializer.serializeMany(result.data), total: result.total };
+  }
+}
+```
+
+## Validator Pattern
+
+```typescript
+import { z } from 'zod';
+
+export const createSchema = z.object({
+  name: z.string().min(1).max(200),
+});
+
+export const updateSchema = createSchema.partial();
+
+export type CreateInput = z.infer<typeof createSchema>;
+export type UpdateInput = z.infer<typeof updateSchema>;
+```
+
+## Module Pattern
+
+```typescript
+import type { Container } from '../../container.ts';
+import { ExampleController } from './example.controller.ts';
+
+export function createExampleModule(container: Container) {
+  const controller = new ExampleController(
+    (tenantId) => container.exampleService(tenantId)
+  );
+  return controller.router;
+}
+```
+
+## API Response
 
 ```typescript
 // Single item
-return ApiResponse.success(c, data, 'Item retrieved');
+return ApiResponse.success(c, data, 'Optional message');
 
-// Created (201)
-return ApiResponse.created(c, data, 'Item created');
+// Created
+return ApiResponse.created(c, data, 'Resource created successfully');
 
 // Paginated list
 return ApiResponse.paginated(c, data, total, page, perPage);
 
-// Error
-return ApiResponse.error(c, 'Something went wrong', 400);
+// Error (handled by errorHandler, usually thrown as exceptions)
+throw new NotFoundException('Resource not found');
 ```
 
-### Exception Usage
+## Testing Pattern
 
 ```typescript
-// In service layer — throw typed exceptions
-throw new NotFoundException('Contact not found');
-throw new ConflictException('Email already registered');
-throw new UnauthorizedException('Invalid credentials');
-throw new BadRequestException('Invalid input', { email: ['Required'] });
-throw new ForbiddenException('Insufficient permissions');
-```
+import { describe, expect, test, beforeAll, afterAll, beforeEach } from 'bun:test';
+import { Hono } from 'hono';
 
-### Zod Schema Pattern
+describe('Module Name', () => {
+  let app: Hono;
+  let ds: DataSource;
 
-```typescript
-export const createXxxSchema = z.object({
-  fieldName: z.string().min(1).max(100).openapi({
-    description: 'Human-readable description',
-    example: 'Example value',
-  }),
-  optionalField: z.string().optional().openapi({
-    description: 'Optional field',
-  }),
-  enumField: z.nativeEnum(SomeEnum).default(SomeEnum.DEFAULT).openapi({
-    description: 'Enum field',
-    example: SomeEnum.DEFAULT,
-  }),
-}).openapi('CreateXxxRequest');
+  beforeAll(async () => {
+    ds = await createTestDataSource();
+    // Build test app
+  });
 
-export const updateXxxSchema = createXxxSchema.partial().openapi('UpdateXxxRequest');
+  afterAll(() => destroyTestDataSource());
+  beforeEach(() => clearAllTables(ds));
 
-export type CreateXxxInput = z.infer<typeof createXxxSchema>;
-export type UpdateXxxInput = z.infer<typeof updateXxxSchema>;
+  test('GET / returns list', async () => {
+    const res = await app.request('/path', { headers });
+    expect(res.status).toBe(200);
+  });
+});
 ```

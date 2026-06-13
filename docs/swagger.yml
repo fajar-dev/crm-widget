@@ -1,0 +1,605 @@
+openapi: '3.1.0'
+info:
+  title: CRM Multi-Tenant API
+  version: '0.2.0'
+  description: |
+    Multi-tenant CRM API built with Hono, TypeORM, and Zod.
+    All API endpoints require an `X-Tenant-ID` header with a valid UUID.
+    Protected endpoints require a `Bearer` JWT token in the `Authorization` header.
+
+servers:
+  - url: http://localhost:3000
+    description: Local Development
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: 'JWT access token. Get one from POST /api/auth/login'
+
+  parameters:
+    TenantId:
+      name: X-Tenant-ID
+      in: header
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: Tenant UUID
+
+    PathId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: Resource UUID
+
+    PageParam:
+      name: page
+      in: query
+      schema:
+        type: integer
+        default: 1
+        minimum: 1
+
+    PerPageParam:
+      name: perPage
+      in: query
+      schema:
+        type: integer
+        default: 10
+        minimum: 1
+        maximum: 100
+
+    SortByParam:
+      name: sortBy
+      in: query
+      schema:
+        type: string
+        default: createdAt
+
+    SortOrderParam:
+      name: sortOrder
+      in: query
+      schema:
+        type: string
+        enum: [ASC, DESC]
+        default: DESC
+
+    SearchParam:
+      name: search
+      in: query
+      schema:
+        type: string
+
+  schemas:
+    ApiResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        statusCode:
+          type: integer
+        message:
+          type: string
+        data:
+          oneOf:
+            - type: object
+            - type: array
+            - type: 'null'
+        meta:
+          $ref: '#/components/schemas/PaginationMeta'
+
+    PaginationMeta:
+      type: object
+      properties:
+        total:
+          type: integer
+        perPage:
+          type: integer
+        currentPage:
+          type: integer
+        lastPage:
+          type: integer
+        from:
+          type: integer
+        to:
+          type: integer
+
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        statusCode:
+          type: integer
+        message:
+          type: string
+        data:
+          type: 'null'
+        errors:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+
+    # Auth Schemas
+    RegisterRequest:
+      type: object
+      required: [firstName, lastName, email, password]
+      properties:
+        firstName:
+          type: string
+          minLength: 1
+          maxLength: 100
+          example: John
+        lastName:
+          type: string
+          minLength: 1
+          maxLength: 100
+          example: Doe
+        email:
+          type: string
+          format: email
+          example: john@example.com
+        password:
+          type: string
+          minLength: 8
+          maxLength: 128
+          example: SecurePass123!
+        role:
+          type: string
+          enum: [super_admin, admin, manager, member]
+          default: member
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          example: john@example.com
+        password:
+          type: string
+          example: SecurePass123!
+
+    RefreshTokenRequest:
+      type: object
+      required: [refreshToken]
+      properties:
+        refreshToken:
+          type: string
+
+    AuthTokens:
+      type: object
+      properties:
+        accessToken:
+          type: string
+        refreshToken:
+          type: string
+        expiresIn:
+          type: string
+          example: '15m'
+
+    UserResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        firstName:
+          type: string
+        lastName:
+          type: string
+        email:
+          type: string
+          format: email
+        role:
+          type: string
+          enum: [super_admin, admin, manager, member]
+        isActive:
+          type: boolean
+        lastLoginAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    # Contact Schemas
+    CreateContactRequest:
+      type: object
+      required: [firstName, lastName]
+      properties:
+        firstName:
+          type: string
+          minLength: 1
+          maxLength: 100
+          example: Jane
+        lastName:
+          type: string
+          minLength: 1
+          maxLength: 100
+          example: Smith
+        email:
+          type: string
+          format: email
+          example: jane@company.com
+        phone:
+          type: string
+          maxLength: 50
+          example: '+62812345678'
+        company:
+          type: string
+          maxLength: 200
+          example: Acme Corp
+        jobTitle:
+          type: string
+          maxLength: 100
+          example: Marketing Manager
+        status:
+          type: string
+          enum: [lead, prospect, customer, inactive]
+          default: lead
+        source:
+          type: string
+          enum: [website, referral, social_media, cold_call, email, other]
+          default: other
+        notes:
+          type: string
+          example: Met at conference 2025
+        address:
+          type: string
+          maxLength: 500
+          example: 123 Main St, Jakarta
+
+    UpdateContactRequest:
+      type: object
+      properties:
+        firstName:
+          type: string
+        lastName:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        company:
+          type: string
+        jobTitle:
+          type: string
+        status:
+          type: string
+          enum: [lead, prospect, customer, inactive]
+        source:
+          type: string
+          enum: [website, referral, social_media, cold_call, email, other]
+        notes:
+          type: string
+        address:
+          type: string
+
+    ContactResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        firstName:
+          type: string
+        lastName:
+          type: string
+        fullName:
+          type: string
+        email:
+          type: string
+          nullable: true
+        phone:
+          type: string
+          nullable: true
+        company:
+          type: string
+          nullable: true
+        jobTitle:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [lead, prospect, customer, inactive]
+        source:
+          type: string
+          enum: [website, referral, social_media, cold_call, email, other]
+        notes:
+          type: string
+          nullable: true
+        address:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+paths:
+  /health:
+    get:
+      summary: Health check
+      tags: [System]
+      responses:
+        '200':
+          description: Service is healthy
+
+  /api/auth/register:
+    post:
+      summary: Register a new user
+      tags: [Auth]
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          user:
+                            $ref: '#/components/schemas/UserResponse'
+                          tokens:
+                            $ref: '#/components/schemas/AuthTokens'
+        '409':
+          description: Email already registered
+        '422':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/auth/login:
+    post:
+      summary: Login with email and password
+      tags: [Auth]
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: object
+                        properties:
+                          user:
+                            $ref: '#/components/schemas/UserResponse'
+                          tokens:
+                            $ref: '#/components/schemas/AuthTokens'
+        '401':
+          description: Invalid credentials
+
+  /api/auth/refresh:
+    post:
+      summary: Refresh access token
+      tags: [Auth]
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshTokenRequest'
+      responses:
+        '200':
+          description: Token refreshed
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/AuthTokens'
+        '401':
+          description: Invalid refresh token
+
+  /api/auth/logout:
+    post:
+      summary: Logout (revoke refresh token)
+      tags: [Auth]
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshTokenRequest'
+      responses:
+        '200':
+          description: Logged out
+
+  /api/auth/me:
+    get:
+      summary: Get current user profile
+      tags: [Auth]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+      responses:
+        '200':
+          description: User profile
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/UserResponse'
+        '401':
+          description: Unauthorized
+
+  /api/contacts:
+    get:
+      summary: List all contacts (paginated)
+      tags: [Contacts]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PerPageParam'
+        - $ref: '#/components/parameters/SortByParam'
+        - $ref: '#/components/parameters/SortOrderParam'
+        - $ref: '#/components/parameters/SearchParam'
+      responses:
+        '200':
+          description: Paginated list of contacts
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/ContactResponse'
+                      meta:
+                        $ref: '#/components/schemas/PaginationMeta'
+
+    post:
+      summary: Create a new contact
+      tags: [Contacts]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateContactRequest'
+      responses:
+        '201':
+          description: Contact created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/ContactResponse'
+        '422':
+          description: Validation error
+
+  /api/contacts/{id}:
+    get:
+      summary: Get contact by ID
+      tags: [Contacts]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/PathId'
+      responses:
+        '200':
+          description: Contact details
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/ContactResponse'
+        '404':
+          description: Contact not found
+
+    put:
+      summary: Update a contact
+      tags: [Contacts]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/PathId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateContactRequest'
+      responses:
+        '200':
+          description: Contact updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/ContactResponse'
+        '404':
+          description: Contact not found
+
+    delete:
+      summary: Delete a contact
+      tags: [Contacts]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/PathId'
+      responses:
+        '200':
+          description: Contact deleted
+        '404':
+          description: Contact not found

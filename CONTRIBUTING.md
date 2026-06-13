@@ -1,156 +1,87 @@
-# Contributing Guide
+# Contributing — Adding a New Module
 
-## Creating a New Module
+Follow these steps to add a new module (e.g., `deals`).
 
-Follow these steps to add a new module (e.g., `deals`):
+## Step-by-Step
 
-### Step 1: Create Entity
+### 1. Create Module Directory
 
 ```bash
-mkdir -p src/modules/deals/{entities,enums,interfaces,validators,repositories,services,serializers,controllers}
+mkdir src/modules/deals
 ```
 
-Create `src/modules/deals/entities/deal.entity.ts`:
-```typescript
-import { Entity, Column } from 'typeorm';
-import { TenantAwareEntity } from '../../../core/interfaces/tenant-aware.interface.ts';
+### 2. Create Files (flat structure)
 
-@Entity('deals')
-export class Deal extends TenantAwareEntity {
-  @Column({ type: 'varchar', length: 200 })
-  title!: string;
-  
-  // Add more columns...
+Create all files at the module root:
+
+```
+src/modules/deals/
+├── deal.enum.ts          # Enumerations
+├── deal.entity.ts        # TypeORM entity
+├── deal.interface.ts     # Type contracts
+├── deal.validator.ts     # Zod schemas
+├── deal.repository.ts    # Data access
+├── deal.serializer.ts    # DTO transformer
+├── deal.service.ts       # Business logic
+├── deal.controller.ts    # Route handler (class-based)
+└── deal.module.ts        # DI wiring
+```
+
+### 3. Register in Container
+
+```typescript
+// src/container.ts
+import { DealRepository } from './modules/deals/deal.repository.ts';
+import { DealService } from './modules/deals/deal.service.ts';
+
+// Add method:
+dealService(tenantId: string): DealService {
+  const repo = new DealRepository(this.dataSource, tenantId);
+  return new DealService(repo);
 }
 ```
 
-### Step 2: Create Enum (if needed)
+### 4. Mount in Router
 
-Create `src/modules/deals/enums/deal.enum.ts` with status values, types, etc.
-
-### Step 3: Create Interface
-
-Create `src/modules/deals/interfaces/deal.interface.ts`:
-- Define `IDealService` interface
-- Define `CreateDealInput` and `UpdateDealInput` types
-
-### Step 4: Create Validators
-
-Create `src/modules/deals/validators/deal.validators.ts`:
-- Define Zod schemas with `.openapi()` decorators
-- Export `createDealSchema`, `updateDealSchema`, `dealResponseSchema`
-- Export inferred types
-
-### Step 5: Create Repository
-
-Create `src/modules/deals/repositories/deal.repository.ts`:
 ```typescript
-import type { DataSource } from 'typeorm';
-import { BaseTenantRepository } from '../../../core/repositories/base.repository.ts';
-import { Deal } from '../entities/deal.entity.ts';
-
-export class DealRepository extends BaseTenantRepository<Deal> {
-  constructor(dataSource: DataSource, tenantId: string) {
-    super(dataSource, Deal, tenantId);
-  }
-  // Add custom query methods if needed
-}
-```
-
-### Step 6: Create Service
-
-Create `src/modules/deals/services/deal.service.ts`:
-- Implement `IDealService`
-- Constructor-inject `DealRepository`
-- Return serialized data from all methods
-
-### Step 7: Create Serializer
-
-Create `src/modules/deals/serializers/deal.serializer.ts`:
-- Static `serialize(deal)` and `serializeMany(deals)` methods
-- Transform entity to API-safe response
-
-### Step 8: Create Controller
-
-Create `src/modules/deals/controllers/deal.controller.ts`:
-- Use `createDealController(serviceFactory)` factory pattern
-- Define routes with `createRoute()` from `@hono/zod-openapi`
-- Use `validationHook` and `ApiResponse`
-
-### Step 9: Create Module Factory
-
-Create `src/modules/deals/deal.module.ts`:
-```typescript
-import type { DataSource } from 'typeorm';
-import { DealRepository } from './repositories/deal.repository.ts';
-import { DealService } from './services/deal.service.ts';
-import { createDealController } from './controllers/deal.controller.ts';
-
-export function createDealModule(dataSource: DataSource) {
-  const dealServiceFactory = (tenantId: string) => {
-    const dealRepository = new DealRepository(dataSource, tenantId);
-    return new DealService(dealRepository);
-  };
-  return createDealController(dealServiceFactory);
-}
-```
-
-### Step 10: Register in Router
-
-Add to `src/routes/api.ts`:
-```typescript
+// src/routes/api.ts
 import { createDealModule } from '../modules/deals/deal.module.ts';
-// Inside createApiRouter:
-api.route('/deals', createDealModule(dataSource));
+
+api.route('/deals', createDealModule(container));
 ```
 
-### Step 11: Update CHANGELOG.md
+### 5. Update swagger.yml
 
-Add entry under `[Unreleased]` > `### Added`.
+Add paths and schemas to `docs/swagger.yml`.
 
----
+### 6. Add Tests
+
+Create `tests/modules/deals/deal.test.ts` with integration tests.
+
+### 7. Update CHANGELOG.md
+
+Add entry under the latest version.
 
 ## Module Checklist
 
-Before submitting a new module, verify:
-
 - [ ] Entity extends `TenantAwareEntity`
 - [ ] Repository extends `BaseTenantRepository`
-- [ ] Service implements interface contract
-- [ ] Serializer strips sensitive data
-- [ ] Controller uses `OpenAPIHono` + `createRoute`
-- [ ] All Zod schemas have `.openapi()` decorators
-- [ ] Module factory wires repo → service → controller
-- [ ] Module registered in `src/routes/api.ts`
-- [ ] CHANGELOG.md updated
-- [ ] All responses use `ApiResponse` helper
+- [ ] Validator uses Zod (no `.openapi()` calls)
+- [ ] Controller is class-based with `router` property
+- [ ] Module wires controller via Container
+- [ ] Registered in `container.ts`
+- [ ] Mounted in `routes/api.ts`
+- [ ] Swagger paths added to `docs/swagger.yml`
+- [ ] Integration tests created
+- [ ] CHANGELOG updated
 
-## Code Style
+## Naming Conventions
 
-### Naming Conventions
-
-| Type | Convention | Example |
-|------|-----------|---------|
-| File | `kebab-case.type.ts` | `deal.entity.ts` |
-| Class | `PascalCase` | `DealService` |
-| Interface | `IPascalCase` | `IDealService` |
-| Enum | `PascalCase` | `DealStatus` |
-| Function | `camelCase` | `createDealModule` |
-| DB column | `snake_case` | `first_name` |
-| DB table | `snake_case plural` | `deals` |
-
-### Import Order
-
-1. External packages (`hono`, `typeorm`, `zod`)
-2. Config imports (`../../config/*`)
-3. Core imports (`../../core/*`)
-4. Module imports (relative `./`)
-5. Type-only imports (use `import type`)
-
-### TypeScript Rules
-
-- Strict mode enabled
-- No `any` types — use proper generics
-- Explicit return types on public methods
-- JSDoc comments on all public APIs
-- Use `type` imports: `import type { X } from '...'`
+| Type | Pattern | Example |
+|------|---------|--------|
+| File | `{module}.{type}.ts` | `deal.service.ts` |
+| Class | `PascalCase` | `DealController` |
+| Method | `camelCase` | `findById` |
+| Route | `kebab-case` | `/api/deals` |
+| DB Column | `snake_case` | `deal_value` |
+| DB Table | `snake_case` plural | `deals` |

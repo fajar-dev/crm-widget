@@ -1,6 +1,6 @@
 {
   "name": "crm-multi-tenant",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Multi-tenant CRM backend with Hono, Bun, TypeORM",
   "type": "module",
   "scripts": {
@@ -8,14 +8,16 @@
     "start": "bun src/index.ts",
     "build": "bun build src/index.ts --outdir ./dist --target bun",
     "typecheck": "tsc --noEmit",
+    "test": "bun test",
+    "test:watch": "bun test --watch",
     "migration:generate": "bunx typeorm migration:generate -d src/config/database.ts",
     "migration:run": "bunx typeorm migration:run -d src/config/database.ts",
     "migration:revert": "bunx typeorm migration:revert -d src/config/database.ts"
   },
   "dependencies": {
     "hono": "^4.7.0",
-    "@hono/zod-openapi": "^0.19.0",
     "@hono/swagger-ui": "^0.5.0",
+    "@hono/zod-validator": "^0.4.0",
     "zod": "^3.25.0",
     "typeorm": "^0.3.20",
     "reflect-metadata": "^0.2.2",

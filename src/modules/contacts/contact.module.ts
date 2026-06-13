@@ -1,21 +1,11 @@
-import type { DataSource } from 'typeorm';
-import { ContactRepository } from './repositories/contact.repository.ts';
-import { ContactService } from './services/contact.service.ts';
-import { createContactController } from './controllers/contact.controller.ts';
+import type { Container } from '../../container.ts';
+import { ContactController } from './contact.controller.ts';
 
 /**
- * Contact module factory.
- * Wires together repository → service → controller.
- *
- * @param dataSource - TypeORM DataSource
- * @returns Configured OpenAPIHono app with all contact CRUD routes
+ * Creates the Contacts module.
+ * Wires the ContactController with the Container's contactService factory.
  */
-export function createContactModule(dataSource: DataSource) {
-  // Factory creates tenant-scoped instances per request
-  const contactServiceFactory = (tenantId: string) => {
-    const contactRepository = new ContactRepository(dataSource, tenantId);
-    return new ContactService(contactRepository);
-  };
-
-  return createContactController(contactServiceFactory);
+export function createContactModule(container: Container) {
+  const controller = new ContactController((tenantId) => container.contactService(tenantId));
+  return controller.router;
 }

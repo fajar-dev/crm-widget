@@ -1,3 +1,6 @@
 [install]
 peer = false
 optional = true
+
+[test]
+preload = ["./tests/setup.ts"]

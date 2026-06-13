@@ -2,8 +2,8 @@ import { createMiddleware } from 'hono/factory';
 import { verify } from 'hono/jwt';
 import { config } from '../../config/config.ts';
 import { UnauthorizedException, ForbiddenException } from '../exceptions/base.ts';
-import type { JwtPayload, AuthUser } from '../../modules/auth/interfaces/auth.interface.ts';
-import type { UserRole } from '../../modules/auth/enums/auth.enum.ts';
+import type { JwtPayload, AuthUser } from '../interfaces/auth.interface.ts';
+import { UserRole } from '../interfaces/auth.interface.ts';
 
 /**
  * JWT authentication middleware.
@@ -30,7 +30,6 @@ export const authMiddleware = createMiddleware<{
       throw new UnauthorizedException('Invalid token type');
     }
 
-    // Set authenticated user in context
     c.set('user', {
       id: payload.sub,
       tenantId: payload.tenantId,
@@ -38,8 +37,6 @@ export const authMiddleware = createMiddleware<{
       role: payload.role,
     });
 
-    // Override tenantId from JWT for security
-    // This ensures tenant context matches the authenticated user
     c.set('tenantId', payload.tenantId);
 
     await next();
@@ -54,11 +51,6 @@ export const authMiddleware = createMiddleware<{
 /**
  * Role-based authorization middleware factory.
  * Use after authMiddleware to restrict access by role.
- *
- * Usage:
- * ```typescript
- * app.use('/admin/*', authMiddleware, requireRole('admin', 'super_admin'));
- * ```
  */
 export function requireRole(...roles: UserRole[]) {
   return createMiddleware<{
@@ -71,7 +63,7 @@ export function requireRole(...roles: UserRole[]) {
       throw new UnauthorizedException('Authentication required');
     }
 
-    if (!roles.includes(user.role as UserRole)) {
+    if (!roles.includes(user.role)) {
       throw new ForbiddenException('Insufficient permissions');
     }
 

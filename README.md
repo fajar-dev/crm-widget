@@ -1,128 +1,76 @@
-# CRM Multi-Tenant Backend
+# CRM Multi-Tenant API
 
-A scalable, multi-tenant CRM backend built with modern TypeScript technologies following clean architecture and SOLID principles.
-
-## Tech Stack
-
-| Technology | Purpose |
-|------------|--------|
-| **Bun** | JavaScript runtime |
-| **Hono** | Web framework |
-| **TypeORM** | ORM (PostgreSQL) |
-| **Zod** | Schema validation |
-| **MinIO** | Object storage (S3-compatible) |
-| **Swagger** | API documentation |
+> Multi-tenant CRM backend built with **Hono**, **Bun**, **TypeORM**, **Zod**, and **MinIO**.
 
 ## Quick Start
 
-### Prerequisites
-
-- [Bun](https://bun.sh) >= 1.2.x
-- PostgreSQL >= 14
-- MinIO (optional, for file uploads)
-
-### Setup
-
 ```bash
-# Clone and install
+# 1. Clone and install
+git clone https://github.com/fajar-dev/crm-widget.git
+cd crm-widget
 bun install
 
-# Copy environment config
+# 2. Configure environment
 cp .env.example .env
-# Edit .env with your database credentials
+# Edit .env — set JWT_SECRET (min 16 chars), DB credentials
 
-# Start development server
+# 3. Start PostgreSQL + MinIO
+docker compose up -d postgres minio
+
+# 4. Run dev server
 bun run dev
+
+# 5. Open Swagger UI
+# http://localhost:3000/docs
 ```
 
-### API Documentation
+## Tech Stack
 
-Once running, visit:
-- **Swagger UI**: http://localhost:3000/docs
-- **OpenAPI JSON**: http://localhost:3000/doc
-- **Health Check**: http://localhost:3000/health
+| Component | Technology |
+|-----------|------------|
+| Runtime | Bun |
+| Framework | Hono |
+| ORM | TypeORM + PostgreSQL |
+| Validation | Zod + @hono/zod-validator |
+| Storage | MinIO (S3-compatible) |
+| Auth | JWT (hono/jwt) + bcrypt |
+| API Docs | Swagger UI + swagger.yml |
+| Testing | bun test |
 
 ## Project Structure
 
 ```
 src/
-├── index.ts                          # Entry point
-├── config/
-│   ├── config.ts                     # Env config (Zod validated)
-│   ├── database.ts                   # TypeORM DataSource
-│   └── minio.ts                      # MinIO client
-├── core/
-│   ├── exceptions/base.ts            # Exception hierarchy
-│   ├── helpers/
-│   │   ├── response.ts               # API response formatter
-│   │   ├── validator.ts              # Zod validation hook
-│   │   └── minio.ts                  # MinIO helper
-│   ├── interfaces/
-│   │   └── tenant-aware.interface.ts # Base tenant entity
-│   ├── middlewares/
-│   │   ├── tenant.middleware.ts      # Tenant resolution
-│   │   ├── auth.middleware.ts        # JWT authentication
-│   │   └── error-handler.middleware.ts
-│   ├── repositories/
-│   │   └── base.repository.ts        # Tenant-scoped base repo
-│   └── validators/
-│       └── pagination.schema.ts      # Shared pagination schema
-├── routes/
-│   └── api.ts                        # Route aggregator
+├── index.ts              # Entry point
+├── container.ts          # DI Container
+├── config/               # Environment, database, MinIO
+├── core/                 # Shared: exceptions, middlewares, helpers
+├── routes/api.ts         # Route aggregator
+├── docs/swagger.yml      # OpenAPI 3.1.0 spec
 └── modules/
-    ├── auth/                         # Authentication module
-    │   ├── entities/
-    │   ├── enums/
-    │   ├── interfaces/
-    │   ├── validators/
-    │   ├── repositories/
-    │   ├── services/
-    │   ├── serializers/
-    │   ├── controllers/
-    │   └── auth.module.ts
-    └── contacts/                     # Contacts module (example)
-        ├── entities/
-        ├── enums/
-        ├── interfaces/
-        ├── validators/
-        ├── repositories/
-        ├── services/
-        ├── serializers/
-        ├── controllers/
-        └── contact.module.ts
+    ├── auth/             # Auth module (flat)
+    └── contacts/         # Contacts module (flat)
+
+tests/
+├── setup.ts              # Test config
+├── helpers/              # Test utilities
+├── core/                 # Middleware tests
+└── modules/              # Integration tests
 ```
 
-## Architecture
-
-See [ARCHITECTURE.md](./ARCHITECTURE.md) for detailed architecture documentation.
-
-## Multi-Tenant Design
-
-- **Strategy**: Row-level tenancy (`tenant_id` column on every entity)
-- **Resolution**: `X-Tenant-ID` header (public routes) / JWT claim (protected routes)
-- **Isolation**: `BaseTenantRepository` auto-filters ALL queries by tenant
-
-## Creating New Modules
-
-See [CONTRIBUTING.md](./CONTRIBUTING.md) for step-by-step guide and [MODULE_TEMPLATE.md](./MODULE_TEMPLATE.md) for copy-paste templates.
-
 ## API Response Format
-
-All responses follow this structure:
 
 ```json
 {
   "success": true,
   "statusCode": 200,
   "message": "Success",
-  "data": {},
+  "data": { ... },
   "meta": {
     "total": 50,
     "perPage": 10,
     "currentPage": 1,
-    "lastPage": 5,
-    "from": 1,
-    "to": 10
+    "lastPage": 5
   }
 }
 ```
@@ -130,15 +78,21 @@ All responses follow this structure:
 ## Scripts
 
 | Command | Description |
-|---------|------------|
-| `bun run dev` | Start dev server with hot reload |
+|---------|-------------|
+| `bun run dev` | Start dev server (hot reload) |
 | `bun run start` | Start production server |
 | `bun run build` | Build for production |
 | `bun run typecheck` | TypeScript type checking |
-| `bun run migration:generate` | Generate migration |
-| `bun run migration:run` | Run migrations |
-| `bun run migration:revert` | Revert last migration |
+| `bun test` | Run all tests |
+| `bun test --watch` | Run tests in watch mode |
 
-## License
+## Multi-Tenancy
 
-Private
+All API requests require `X-Tenant-ID` header with a valid UUID. Row-level tenant isolation is enforced automatically via `BaseTenantRepository`.
+
+## Documentation
+
+- [ARCHITECTURE.md](./ARCHITECTURE.md) — System design & patterns
+- [CONTRIBUTING.md](./CONTRIBUTING.md) — How to add new modules
+- [MODULE_TEMPLATE.md](./MODULE_TEMPLATE.md) — Copy-paste templates
+- [CHANGELOG.md](./CHANGELOG.md) — Version history

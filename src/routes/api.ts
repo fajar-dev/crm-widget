@@ -1,30 +1,32 @@
-import { OpenAPIHono } from '@hono/zod-openapi';
+import { Hono } from 'hono';
 import type { DataSource } from 'typeorm';
 import { tenantMiddleware } from '../core/middlewares/tenant.middleware.ts';
+import { Container } from '../container.ts';
 import { createAuthModule } from '../modules/auth/auth.module.ts';
 import { createContactModule } from '../modules/contacts/contact.module.ts';
 
 /**
  * Creates the main API router with all module routes.
- * Applies tenant middleware to all routes.
+ * Uses the DI Container to wire dependencies.
  *
  * @param dataSource - TypeORM DataSource
- * @returns Configured OpenAPIHono app
+ * @returns Configured Hono app
  */
 export function createApiRouter(dataSource: DataSource) {
-  const api = new OpenAPIHono();
+  const api = new Hono();
+  const container = new Container(dataSource);
 
   // Apply tenant resolution middleware to all API routes
   api.use('/*', tenantMiddleware);
 
   // Mount module routes
-  api.route('/auth', createAuthModule(dataSource));
-  api.route('/contacts', createContactModule(dataSource));
+  api.route('/auth', createAuthModule(container));
+  api.route('/contacts', createContactModule(container));
 
   // Add more modules here:
-  // api.route('/deals', createDealModule(dataSource));
-  // api.route('/tasks', createTaskModule(dataSource));
-  // api.route('/companies', createCompanyModule(dataSource));
+  // api.route('/deals', createDealModule(container));
+  // api.route('/tasks', createTaskModule(container));
+  // api.route('/companies', createCompanyModule(container));
 
   return api;
 }
