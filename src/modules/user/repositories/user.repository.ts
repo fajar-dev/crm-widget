@@ -2,9 +2,6 @@ import type { DataSource } from 'typeorm';
 import { BaseTenantRepository } from '../../../core/repositories/base.repository.ts';
 import { User } from '../entities/user.entity.ts';
 
-/**
- * User repository with tenant-scoped queries.
- */
 export class UserRepository extends BaseTenantRepository<User> {
   constructor(dataSource: DataSource, tenantId: string) {
     super(dataSource, User, tenantId);

@@ -1,16 +1,11 @@
 import 'reflect-metadata';
 import { DataSource } from 'typeorm';
-import { User } from '../../src/modules/auth/entities/user.entity.ts';
+import { User } from '../../src/modules/user/entities/user.entity.ts';
 import { RefreshToken } from '../../src/modules/auth/entities/refresh-token.entity.ts';
 import { Contact } from '../../src/modules/contacts/entities/contact.entity.ts';
 
 let testDataSource: DataSource | null = null;
 
-/**
- * Creates or returns an existing test DataSource.
- * Uses PostgreSQL test database with dropSchema + synchronize
- * to ensure clean state on each test run.
- */
 export async function createTestDataSource(): Promise<DataSource> {
   if (testDataSource?.isInitialized) {
     return testDataSource;
@@ -33,9 +28,6 @@ export async function createTestDataSource(): Promise<DataSource> {
   return testDataSource;
 }
 
-/**
- * Destroys the test DataSource connection.
- */
 export async function destroyTestDataSource(): Promise<void> {
   if (testDataSource?.isInitialized) {
     await testDataSource.destroy();
@@ -43,10 +35,6 @@ export async function destroyTestDataSource(): Promise<void> {
   }
 }
 
-/**
- * Truncates all tables in the test database.
- * Uses CASCADE to handle foreign key constraints.
- */
 export async function clearAllTables(ds: DataSource): Promise<void> {
   const entities = ds.entityMetadatas;
   for (const entity of entities) {

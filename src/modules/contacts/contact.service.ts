@@ -9,13 +9,13 @@ export class ContactService implements IContactService {
   async findAll(_tenantId: string, query: PaginationQuery) {
     if (query.search) {
       const result = await this.contactRepository.search(query.search, query.page, query.perPage);
-      return { data: ContactSerializer.serializeMany(result.data), total: result.total };
+      return { data: ContactSerializer.collection(result.data), total: result.total };
     }
 
     const result = await this.contactRepository.paginate(query.page, query.perPage, {
       order: { [query.sortBy]: query.sortOrder } as any,
     });
-    return { data: ContactSerializer.serializeMany(result.data), total: result.total };
+    return { data: ContactSerializer.collection(result.data), total: result.total };
   }
 
   async findById(_tenantId: string, id: string): Promise<SerializedContact> {

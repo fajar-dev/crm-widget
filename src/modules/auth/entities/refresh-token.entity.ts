@@ -1,9 +1,6 @@
 import { Entity, Column, ManyToOne, JoinColumn, PrimaryGeneratedColumn, CreateDateColumn, Index } from 'typeorm';
-import { User } from './user.entity.ts';
+import { User } from '../../user/entities/user.entity.ts';
 
-/**
- * Refresh token entity for JWT token rotation.
- */
 @Entity('refresh_tokens')
 export class RefreshToken {
   @PrimaryGeneratedColumn('uuid')

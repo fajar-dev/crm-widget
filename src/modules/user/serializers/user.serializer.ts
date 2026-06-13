@@ -1,8 +1,5 @@
 import type { User } from '../entities/user.entity.ts';
 
-/**
- * Serialized user data safe for API responses.
- */
 export interface SerializedUser {
   id: string;
   firstName: string;
@@ -15,10 +12,7 @@ export interface SerializedUser {
   updatedAt: string;
 }
 
-/**
- * Transforms User entities into API-safe response objects.
- */
-export class AuthSerializer {
+export class UserSerializer {
   static serialize(user: User): SerializedUser {
     return {
       id: user.id,
@@ -33,7 +27,7 @@ export class AuthSerializer {
     };
   }
 
-  static serializeMany(users: User[]): SerializedUser[] {
-    return users.map(AuthSerializer.serialize);
+  static collection(users: User[]): SerializedUser[] {
+    return users.map(UserSerializer.serialize);
   }
 }

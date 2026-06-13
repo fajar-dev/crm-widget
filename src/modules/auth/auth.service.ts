@@ -1,15 +1,12 @@
 import { sign, verify } from 'hono/jwt';
 import type { JwtPayload } from '../../core/interfaces/auth.interface.ts';
 import type { AuthTokens, IAuthService, RegisterInput, LoginInput } from './interfaces/auth.interface.ts';
-import type { UserRepository } from './repositories/user.repository.ts';
+import type { UserRepository } from '../user/repositories/user.repository.ts';
 import type { RefreshTokenRepository } from './repositories/refresh-token.repository.ts';
-import { AuthSerializer, type SerializedUser } from './serializers/auth.serializer.ts';
+import { UserSerializer, type SerializedUser } from '../user/serializers/user.serializer.ts';
 import { UnauthorizedException, ConflictException } from '../../core/exceptions/base.ts';
 import { config } from '../../config/config.ts';
 
-/**
- * Authentication service handling user registration, login, and token management.
- */
 export class AuthService implements IAuthService {
   constructor(
     private readonly userRepository: UserRepository,
@@ -27,7 +24,7 @@ export class AuthService implements IAuthService {
     const user = await this.userRepository.create({ ...data, password: hashedPassword });
     const tokens = await this.generateTokens(user.id, tenantId, user.email, user.role);
 
-    return { user: AuthSerializer.serialize(user), tokens };
+    return { user: UserSerializer.serialize(user), tokens };
   }
 
   async login(tenantId: string, data: LoginInput): Promise<{ user: SerializedUser; tokens: AuthTokens }> {
@@ -41,7 +38,7 @@ export class AuthService implements IAuthService {
     await this.userRepository.updateLastLogin(user.id);
     const tokens = await this.generateTokens(user.id, tenantId, user.email, user.role);
 
-    return { user: AuthSerializer.serialize(user), tokens };
+    return { user: UserSerializer.serialize(user), tokens };
   }
 
   async refreshToken(tenantId: string, refreshToken: string): Promise<AuthTokens> {
@@ -65,7 +62,7 @@ export class AuthService implements IAuthService {
 
   async getProfile(_tenantId: string, userId: string): Promise<SerializedUser> {
     const user = await this.userRepository.findByIdOrFail(userId, 'User');
-    return AuthSerializer.serialize(user);
+    return UserSerializer.serialize(user);
   }
 
   private async generateTokens(userId: string, tenantId: string, email: string, role: string): Promise<AuthTokens> {

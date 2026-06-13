@@ -38,7 +38,7 @@ export class ContactSerializer {
     };
   }
 
-  static serializeMany(contacts: Contact[]): SerializedContact[] {
+  static collection(contacts: Contact[]): SerializedContact[] {
     return contacts.map(ContactSerializer.serialize);
   }
 }
