@@ -1,6 +1,6 @@
 import type { DataSource, Repository, DeepPartial, FindOptionsWhere, FindManyOptions, ObjectLiteral } from 'typeorm';
-import type { TenantAwareEntity } from '../interfaces/tenant-aware.interface.ts';
 import { NotFoundException } from '../exceptions/base.ts';
+import type { BaseEntity } from '../interfaces/base.entity.ts';
 
 /**
  * Pagination result interface.
@@ -11,58 +11,42 @@ export interface PaginatedResult<T> {
 }
 
 /**
- * Base repository for tenant-aware entities.
- * Automatically scopes ALL queries to the current tenant.
+ * Base repository for all entities.
+ * Provides common CRUD operations.
  *
  * Usage:
  * ```typescript
- * class ContactRepository extends BaseTenantRepository<Contact> {
- *   constructor(dataSource: DataSource, tenantId: string) {
- *     super(dataSource, Contact, tenantId);
+ * class ContactRepository extends BaseRepository<Contact> {
+ *   constructor(dataSource: DataSource) {
+ *     super(dataSource, Contact);
  *   }
  * }
  * ```
  */
-export class BaseTenantRepository<T extends TenantAwareEntity & ObjectLiteral> {
+export class BaseRepository<T extends BaseEntity & ObjectLiteral> {
   protected readonly repository: Repository<T>;
-  protected readonly tenantId: string;
 
   constructor(
     dataSource: DataSource,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     entity: new () => T,
-    tenantId: string,
   ) {
     this.repository = dataSource.getRepository(entity);
-    this.tenantId = tenantId;
   }
 
   /**
-   * Build a where clause that always includes tenant_id filter.
+   * Find all entities.
    */
-  protected tenantWhere(where?: FindOptionsWhere<T>): FindOptionsWhere<T> {
-    return {
-      ...where,
-      tenantId: this.tenantId,
-    } as FindOptionsWhere<T>;
+  async findAll(options?: FindManyOptions<T>): Promise<T[]> {
+    return this.repository.find(options);
   }
 
   /**
-   * Find all entities for the current tenant.
-   */
-  async findAll(options?: Omit<FindManyOptions<T>, 'where'> & { where?: FindOptionsWhere<T> }): Promise<T[]> {
-    return this.repository.find({
-      ...options,
-      where: this.tenantWhere(options?.where),
-    });
-  }
-
-  /**
-   * Find entity by ID (scoped to tenant).
+   * Find entity by ID.
    */
   async findById(id: string): Promise<T | null> {
     return this.repository.findOne({
-      where: this.tenantWhere({ id } as any),
+      where: { id } as FindOptionsWhere<T>,
     });
   }
 
@@ -78,27 +62,22 @@ export class BaseTenantRepository<T extends TenantAwareEntity & ObjectLiteral> {
   }
 
   /**
-   * Find one entity matching criteria (scoped to tenant).
+   * Find one entity matching criteria.
    */
   async findOne(where: FindOptionsWhere<T>): Promise<T | null> {
-    return this.repository.findOne({
-      where: this.tenantWhere(where),
-    });
+    return this.repository.findOne({ where });
   }
 
   /**
-   * Create and save a new entity (auto-sets tenantId).
+   * Create and save a new entity.
    */
   async create(data: DeepPartial<T>): Promise<T> {
-    const entity = this.repository.create({
-      ...data,
-      tenantId: this.tenantId,
-    } as DeepPartial<T>);
+    const entity = this.repository.create(data);
     return this.repository.save(entity);
   }
 
   /**
-   * Update an existing entity by ID (scoped to tenant).
+   * Update an existing entity by ID.
    */
   async update(id: string, data: DeepPartial<T>, entityName = 'Resource'): Promise<T> {
     const entity = await this.findByIdOrFail(id, entityName);
@@ -107,24 +86,23 @@ export class BaseTenantRepository<T extends TenantAwareEntity & ObjectLiteral> {
   }
 
   /**
-   * Soft delete or hard delete an entity by ID (scoped to tenant).
+   * Delete an entity by ID.
    */
   async delete(id: string, entityName = 'Resource'): Promise<void> {
     await this.findByIdOrFail(id, entityName);
-    await this.repository.delete({ id, tenantId: this.tenantId } as any);
+    await this.repository.delete(id);
   }
 
   /**
-   * Paginated find with tenant scoping.
+   * Paginated find.
    */
   async paginate(
     page: number,
     perPage: number,
-    options?: Omit<FindManyOptions<T>, 'where' | 'skip' | 'take'> & { where?: FindOptionsWhere<T> },
+    options?: Omit<FindManyOptions<T>, 'skip' | 'take'>,
   ): Promise<PaginatedResult<T>> {
     const [data, total] = await this.repository.findAndCount({
       ...options,
-      where: this.tenantWhere(options?.where),
       skip: (page - 1) * perPage,
       take: perPage,
     });
@@ -132,11 +110,9 @@ export class BaseTenantRepository<T extends TenantAwareEntity & ObjectLiteral> {
   }
 
   /**
-   * Count entities (scoped to tenant).
+   * Count entities.
    */
   async count(where?: FindOptionsWhere<T>): Promise<number> {
-    return this.repository.count({
-      where: this.tenantWhere(where),
-    });
+    return this.repository.count({ where });
   }
 }

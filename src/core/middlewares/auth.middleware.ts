@@ -8,11 +8,12 @@ import { UserRole } from '../interfaces/auth.interface.ts';
 /**
  * JWT authentication middleware.
  * Verifies Bearer token and injects authenticated user into Hono context.
- * Supports nullable tenantId/role for users without a tenant.
+ * Supports nullable tenantId/tenantSlug/role for users without a tenant.
  */
 export const authMiddleware = createMiddleware<{
   Variables: {
     tenantId: string;
+    tenantSlug: string;
     user: AuthUser;
   };
 }>(async (c, next) => {
@@ -34,11 +35,15 @@ export const authMiddleware = createMiddleware<{
       id: payload.sub,
       email: payload.email,
       tenantId: payload.tenantId,
+      tenantSlug: payload.tenantSlug,
       role: payload.role,
     });
 
     if (payload.tenantId) {
       c.set('tenantId', payload.tenantId);
+    }
+    if (payload.tenantSlug) {
+      c.set('tenantSlug', payload.tenantSlug);
     }
 
     await next();
@@ -52,16 +57,17 @@ export const authMiddleware = createMiddleware<{
 
 /**
  * Middleware that requires a tenant context in the JWT.
- * Use after authMiddleware for tenant-scoped routes (e.g., contacts).
+ * Use after authMiddleware for tenant-scoped routes.
  */
 export const requireTenant = createMiddleware<{
   Variables: {
     tenantId: string;
+    tenantSlug: string;
     user: AuthUser;
   };
 }>(async (c, next) => {
   const user = c.get('user');
-  if (!user || !user.tenantId) {
+  if (!user || !user.tenantId || !user.tenantSlug) {
     throw new ForbiddenException('Tenant context is required. Please select or create a tenant first.');
   }
   await next();

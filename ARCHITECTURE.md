@@ -2,7 +2,7 @@
 
 ## Overview
 
-Clean Architecture with shared-user multi-tenancy. Users are global; tenant-scoped data uses row-level isolation. All modules follow a hybrid file structure with class-based OOP and constructor dependency injection.
+Clean Architecture with schema-per-tenant multi-tenancy. Users are global in the `public` schema; tenant-scoped data is isolated in per-tenant PostgreSQL schemas (`tenant_<slug>`). All modules follow a hybrid file structure with class-based OOP and constructor dependency injection.
 
 ## Layer Architecture
 
@@ -13,7 +13,8 @@ Request → Routes → Middleware → Controller → Service → Repository → 
 ```
 
 ```
-DataSource → Container → Module → Controller ← Routes
+SharedDataSource (public) ──┐
+TenantDataSourceManager ────┤→ Container → Module → Controller ← Routes
 ```
 
 ### Layers
@@ -24,7 +25,7 @@ DataSource → Container → Module → Controller ← Routes
 | Module | DI wiring, creates controller with injected dependencies | `createXxxModule()` returns Controller |
 | Controller | Handler methods only (no router, no route definitions) | Class with public async methods |
 | Service | Business logic, orchestration | Class with constructor DI |
-| Repository | Data access, tenant scoping (or global) | `BaseTenantRepository` (scoped) or `BaseRepository` (global) |
+| Repository | Data access | `BaseRepository` (same base for all) |
 | Serializer | Entity → DTO transformation | Static methods (`serialize`, `collection`) |
 | Validator | Input validation schemas | Zod schemas |
 | Interface | Type contracts, DI abstractions | TypeScript interfaces |
@@ -35,20 +36,24 @@ DataSource → Container → Module → Controller ← Routes
 
 ### Container Pattern
 
-The `Container` class centralizes dependency wiring. Global services (auth, tenant) take no `tenantId`. Tenant-scoped services (contacts) require `tenantId`:
+The `Container` class centralizes dependency wiring. It takes a shared `DataSource` (public schema) and a `TenantDataSourceManager` (per-tenant schemas). Global services (auth, tenant) use the shared DataSource. Tenant-scoped services (contacts) use a `DataSource` resolved by `tenantSlug`:
 
 ```typescript
 // src/container.ts
 export class Container {
-  constructor(private readonly dataSource: DataSource) {}
+  constructor(
+    private readonly sharedDataSource: DataSource,
+    private readonly tenantDataSourceManager: TenantDataSourceManager,
+  ) {}
 
-  // Global services — no tenantId
+  // Shared services — public schema
   authService(): AuthService { /* ... */ }
   tenantService(): TenantService { /* ... */ }
 
-  // Tenant-scoped services — require tenantId
-  contactService(tenantId: string): ContactService {
-    const repo = new ContactRepository(this.dataSource, tenantId);
+  // Tenant-scoped services — per-tenant schema
+  async contactService(tenantSlug: string): Promise<ContactService> {
+    const ds = await this.tenantDataSourceManager.getDataSource(tenantSlug);
+    const repo = new ContactRepository(ds);
     return new ContactService(repo);
   }
 }
@@ -67,9 +72,9 @@ Flow: `routes/api.ts` → `routes/api/contacts.ts` → `createContactModule(cont
 Modules receive the container and return the controller instance:
 
 ```typescript
-// Tenant-scoped module — controller takes service factory
+// Tenant-scoped module — controller takes async service factory
 export function createContactModule(container: Container): ContactController {
-  return new ContactController((tenantId) => container.contactService(tenantId));
+  return new ContactController((tenantSlug) => container.contactService(tenantSlug));
 }
 
 // Global module — controller takes service directly (no factory)
@@ -131,19 +136,24 @@ Users are **global** (no `tenant_id`). They belong to tenants via a `UserTenant`
 ### Database Schema
 
 ```
-users           — Global users (no tenant_id)
-tenants         — Tenant workspaces
-user_tenants    — User ↔ Tenant pivot (role, status)
-tenant_invitations — Email-based invitations
-contacts        — Tenant-scoped (has tenant_id)
-refresh_tokens  — Auth tokens
+public schema:
+  users              — Global users
+  tenants            — Tenant workspaces
+  user_tenants       — User ↔ Tenant pivot (role, status)
+  tenant_invitations — Email-based invitations
+  refresh_tokens     — Auth tokens
+
+tenant_<slug> schema (one per tenant):
+  contacts           — Tenant-scoped
+  (future entities)  — All tenant-scoped entities live here
 ```
 
 ### Strategy
 
-- **Global data** (users, tenants): No tenant scoping
-- **Tenant-scoped data** (contacts): Row-level isolation via `tenant_id` column, enforced by `BaseTenantRepository`
-- **JWT**: Contains nullable `tenantId` and `role` (null when user has no tenant yet)
+- **Global data** (users, tenants): `public` schema, `sharedDataSource`
+- **Tenant-scoped data** (contacts): Per-tenant schema (`tenant_<slug>`), resolved via `TenantDataSourceManager`
+- **JWT**: Contains nullable `tenantId`, `tenantSlug`, and `role` (null when user has no tenant yet)
+- **Schema creation**: Automatically on tenant creation via `TenantDataSourceManager.createTenantSchema(slug)`
 
 ### Middleware Layers
 
@@ -160,9 +170,9 @@ Controller, service, and module files sit at the module root. Supporting files (
 ```
 modules/contacts/                   # Tenant-scoped module
 ├── entities/
-│   └── contact.entity.ts          # Extends TenantAwareEntity
+│   └── contact.entity.ts          # Extends BaseEntity
 ├── repositories/
-│   └── contact.repository.ts      # Extends BaseTenantRepository
+│   └── contact.repository.ts      # Extends BaseRepository
 ├── serializers/
 │   └── contact.serializer.ts      # DTO transformer (serialize + collection)
 ├── validators/
@@ -213,7 +223,7 @@ OpenAPI spec is maintained in `docs/swagger.yml` (static YAML).
 
 1. User **registers** → creates global user only (no tenant)
 2. User **logs in** → receives `{ user, tenants[], activeTenant, tokens }`
-3. JWT contains nullable `tenantId` and `role` (null when user has no tenant)
+3. JWT contains nullable `tenantId`, `tenantSlug`, and `role` (null when user has no tenant)
 4. Access token sent in `Authorization: Bearer <token>` header
 5. `authMiddleware` verifies JWT, sets `user` in context
 6. `requireTenant` middleware ensures `tenantId` is present in JWT

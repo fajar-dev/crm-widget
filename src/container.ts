@@ -1,4 +1,5 @@
 import type { DataSource } from 'typeorm';
+import type { TenantDataSourceManager } from './config/tenant-datasource.ts';
 import { UserRepository } from './modules/user/repositories/user.repository.ts';
 import { RefreshTokenRepository } from './modules/auth/repositories/refresh-token.repository.ts';
 import { TenantRepository } from './modules/tenant/repositories/tenant.repository.ts';
@@ -10,31 +11,34 @@ import { ContactRepository } from './modules/contacts/repositories/contact.repos
 import { ContactService } from './modules/contacts/contact.service.ts';
 
 export class Container {
-  constructor(private readonly dataSource: DataSource) {}
+  constructor(
+    private readonly sharedDataSource: DataSource,
+    private readonly tenantDataSourceManager: TenantDataSourceManager,
+  ) {}
 
-  // ── Global repositories ──────────────────────────────
+  // ── Shared repositories (public schema) ─────────────
 
   userRepository(): UserRepository {
-    return new UserRepository(this.dataSource);
+    return new UserRepository(this.sharedDataSource);
   }
 
   tenantRepository(): TenantRepository {
-    return new TenantRepository(this.dataSource);
+    return new TenantRepository(this.sharedDataSource);
   }
 
   userTenantRepository(): UserTenantRepository {
-    return new UserTenantRepository(this.dataSource);
+    return new UserTenantRepository(this.sharedDataSource);
   }
 
   invitationRepository(): TenantInvitationRepository {
-    return new TenantInvitationRepository(this.dataSource);
+    return new TenantInvitationRepository(this.sharedDataSource);
   }
 
   refreshTokenRepository(): RefreshTokenRepository {
-    return new RefreshTokenRepository(this.dataSource);
+    return new RefreshTokenRepository(this.sharedDataSource);
   }
 
-  // ── Services ─────────────────────────────────────────
+  // ── Shared services ─────────────────────────────────
 
   authService(): AuthService {
     return new AuthService(
@@ -51,11 +55,15 @@ export class Container {
       this.userTenantRepository(),
       this.invitationRepository(),
       this.userRepository(),
+      this.tenantDataSourceManager,
     );
   }
 
-  contactService(tenantId: string): ContactService {
-    const repo = new ContactRepository(this.dataSource, tenantId);
+  // ── Tenant-scoped services (per-tenant schema) ─────
+
+  async contactService(tenantSlug: string): Promise<ContactService> {
+    const ds = await this.tenantDataSourceManager.getDataSource(tenantSlug);
+    const repo = new ContactRepository(ds);
     return new ContactService(repo);
   }
 }

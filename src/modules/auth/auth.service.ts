@@ -32,7 +32,7 @@ export class AuthService implements IAuthService {
       phone: data.phone,
     });
 
-    const tokens = await this.generateTokens(user.id, user.email, null, null);
+    const tokens = await this.generateTokens(user.id, user.email, null, null, null);
     return { user: UserSerializer.serialize(user), tokens };
   }
 
@@ -51,6 +51,7 @@ export class AuthService implements IAuthService {
 
     let activeTenant: SerializedTenant | null = null;
     let tenantId: string | null = null;
+    let tenantSlug: string | null = null;
     let role: UserRole | null = null;
 
     if (memberships.length > 0) {
@@ -60,12 +61,13 @@ export class AuthService implements IAuthService {
       const active = lastActive || memberships[0]!;
       activeTenant = TenantSerializer.serialize(active.tenant, active.role);
       tenantId = active.tenantId;
+      tenantSlug = active.tenant.slug;
       role = active.role;
 
       await this.userRepository.updateLastActiveTenant(user.id, active.tenantId);
     }
 
-    const tokens = await this.generateTokens(user.id, user.email, tenantId, role);
+    const tokens = await this.generateTokens(user.id, user.email, tenantId, tenantSlug, role);
     return { user: UserSerializer.serialize(user), tenants, activeTenant, tokens };
   }
 
@@ -77,7 +79,7 @@ export class AuthService implements IAuthService {
     await this.userRepository.updateLastActiveTenant(userId, tenantId);
 
     const activeTenant = TenantSerializer.serialize(membership.tenant, membership.role);
-    const tokens = await this.generateTokens(userId, user.email, tenantId, membership.role);
+    const tokens = await this.generateTokens(userId, user.email, tenantId, membership.tenant.slug, membership.role);
 
     return { activeTenant, tokens };
   }
@@ -91,7 +93,7 @@ export class AuthService implements IAuthService {
       if (payload.type !== 'refresh') throw new UnauthorizedException('Invalid token type');
 
       await this.refreshTokenRepository.revoke(refreshToken);
-      return this.generateTokens(payload.sub, payload.email, payload.tenantId, payload.role);
+      return this.generateTokens(payload.sub, payload.email, payload.tenantId, payload.tenantSlug, payload.role);
     } catch {
       throw new UnauthorizedException('Invalid or expired refresh token');
     }
@@ -115,16 +117,16 @@ export class AuthService implements IAuthService {
     return { user: UserSerializer.serialize(user), activeTenant, tenants };
   }
 
-  private async generateTokens(userId: string, email: string, tenantId: string | null, role: UserRole | null): Promise<AuthTokens> {
+  private async generateTokens(userId: string, email: string, tenantId: string | null, tenantSlug: string | null, role: UserRole | null): Promise<AuthTokens> {
     const now = Math.floor(Date.now() / 1000);
 
     const accessPayload = {
-      sub: userId, email, tenantId, role, type: 'access',
+      sub: userId, email, tenantId, tenantSlug, role, type: 'access',
       iat: now, exp: now + this.parseExpiry(config.JWT_EXPIRES_IN),
     };
 
     const refreshPayload = {
-      sub: userId, email, tenantId, role, type: 'refresh',
+      sub: userId, email, tenantId, tenantSlug, role, type: 'refresh',
       iat: now, exp: now + this.parseExpiry(config.JWT_REFRESH_EXPIRES_IN),
     };
 

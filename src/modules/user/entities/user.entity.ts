@@ -1,6 +1,5 @@
 import { Entity, Column, Index, OneToMany } from 'typeorm';
 import { BaseEntity } from '../../../core/interfaces/base.entity.ts';
-import { UserTenant } from '../../tenant/entities/user-tenant.entity.ts';
 
 @Entity('users')
 export class User extends BaseEntity {
@@ -32,8 +31,8 @@ export class User extends BaseEntity {
   @Column({ type: 'uuid', name: 'last_active_tenant_id', nullable: true })
   lastActiveTenantId?: string;
 
-  @OneToMany(() => UserTenant, (ut) => ut.user)
-  tenants!: UserTenant[];
+  @OneToMany('UserTenant', 'user')
+  tenants!: any[];
 
   get fullName(): string {
     return `${this.firstName} ${this.lastName}`;

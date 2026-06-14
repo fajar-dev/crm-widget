@@ -1,6 +1,5 @@
 import { Entity, Column, Index, OneToMany } from 'typeorm';
 import { BaseEntity } from '../../../core/interfaces/base.entity.ts';
-import { UserTenant } from './user-tenant.entity.ts';
 
 @Entity('tenants')
 export class Tenant extends BaseEntity {
@@ -24,6 +23,6 @@ export class Tenant extends BaseEntity {
   @Column({ type: 'boolean', name: 'is_active', default: true })
   isActive!: boolean;
 
-  @OneToMany(() => UserTenant, (ut) => ut.tenant)
-  members!: UserTenant[];
+  @OneToMany('UserTenant', 'tenant')
+  members!: any[];
 }

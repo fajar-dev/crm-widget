@@ -1,28 +1,44 @@
 import { describe, expect, test, beforeAll, afterAll, beforeEach } from 'bun:test';
 import { Hono } from 'hono';
 import type { DataSource } from 'typeorm';
-import { createTestDataSource, destroyTestDataSource, clearAllTables } from '../../helpers/test-database.ts';
-import { TEST_TENANT_ID, authHeaders } from '../../helpers/test-jwt.ts';
+import { createTestDataSource, createTestTenantDataSource, destroyTestDataSource, clearAllTables } from '../../helpers/test-database.ts';
+import { authHeaders } from '../../helpers/test-jwt.ts';
 import { seedUser, seedContacts } from '../../helpers/seed.ts';
-import { Container } from '../../../src/container.ts';
-import { createContactModule } from '../../../src/modules/contacts/contact.module.ts';
-import { tenantMiddleware } from '../../../src/core/middlewares/tenant.middleware.ts';
+import { ContactController } from '../../../src/modules/contacts/contact.controller.ts';
+import { ContactRepository } from '../../../src/modules/contacts/repositories/contact.repository.ts';
+import { ContactService } from '../../../src/modules/contacts/contact.service.ts';
 import { errorHandler } from '../../../src/core/middlewares/error-handler.middleware.ts';
+import { authMiddleware, requireTenant } from '../../../src/core/middlewares/auth.middleware.ts';
+import { createContactSchema, updateContactSchema } from '../../../src/modules/contacts/validators/contact.validator.ts';
+import { paginationSchema } from '../../../src/core/validators/pagination.schema.ts';
+import { validate } from '../../../src/core/helpers/validator.ts';
 
 describe('Contact Module — Integration Tests', () => {
   let app: Hono;
-  let ds: DataSource;
+  let sharedDs: DataSource;
+  let tenantDs: DataSource;
   let headers: Record<string, string>;
 
   beforeAll(async () => {
-    ds = await createTestDataSource();
-    const container = new Container(ds);
+    sharedDs = await createTestDataSource();
+    tenantDs = await createTestTenantDataSource();
     headers = await authHeaders();
+
+    // Create controller with service factory that uses tenant DataSource
+    const controller = new ContactController(async (_tenantSlug: string) => {
+      const repo = new ContactRepository(tenantDs);
+      return new ContactService(repo);
+    });
 
     app = new Hono();
     app.onError(errorHandler);
-    app.use('/*', tenantMiddleware);
-    app.route('/contacts', createContactModule(container));
+    app.use('/*', authMiddleware, requireTenant);
+
+    app.get('/contacts', validate('query', paginationSchema), (c) => controller.index(c));
+    app.get('/contacts/:id', (c) => controller.show(c));
+    app.post('/contacts', validate('json', createContactSchema), (c) => controller.store(c));
+    app.put('/contacts/:id', validate('json', updateContactSchema), (c) => controller.update(c));
+    app.delete('/contacts/:id', (c) => controller.destroy(c));
   });
 
   afterAll(async () => {
@@ -30,8 +46,9 @@ describe('Contact Module — Integration Tests', () => {
   });
 
   beforeEach(async () => {
-    await clearAllTables(ds);
-    await seedUser(ds);
+    await clearAllTables(sharedDs);
+    await clearAllTables(tenantDs);
+    await seedUser(sharedDs);
   });
 
   // ── List Contacts ──────────────────────────────────────
@@ -46,7 +63,7 @@ describe('Contact Module — Integration Tests', () => {
     });
 
     test('returns paginated contacts', async () => {
-      await seedContacts(ds, 5);
+      await seedContacts(tenantDs, 5);
 
       const res = await app.request('/contacts?page=1&perPage=2', { headers });
       expect(res.status).toBe(200);
@@ -58,7 +75,7 @@ describe('Contact Module — Integration Tests', () => {
     });
 
     test('returns second page of contacts', async () => {
-      await seedContacts(ds, 5);
+      await seedContacts(tenantDs, 5);
 
       const res = await app.request('/contacts?page=2&perPage=2', { headers });
       expect(res.status).toBe(200);
@@ -68,7 +85,7 @@ describe('Contact Module — Integration Tests', () => {
     });
 
     test('searches contacts by name', async () => {
-      await seedContacts(ds, 3);
+      await seedContacts(tenantDs, 3);
 
       const res = await app.request('/contacts?search=Contact1', { headers });
       expect(res.status).toBe(200);
@@ -78,9 +95,7 @@ describe('Contact Module — Integration Tests', () => {
     });
 
     test('rejects unauthenticated request', async () => {
-      const res = await app.request('/contacts', {
-        headers: { 'X-Tenant-ID': TEST_TENANT_ID },
-      });
+      const res = await app.request('/contacts');
       expect(res.status).toBe(401);
     });
   });
@@ -156,7 +171,7 @@ describe('Contact Module — Integration Tests', () => {
   // ── Get Contact ────────────────────────────────────────
   describe('GET /contacts/:id', () => {
     test('returns contact by ID', async () => {
-      const [contact] = await seedContacts(ds, 1);
+      const [contact] = await seedContacts(tenantDs, 1);
 
       const res = await app.request(`/contacts/${contact!.id}`, { headers });
       expect(res.status).toBe(200);
@@ -175,7 +190,7 @@ describe('Contact Module — Integration Tests', () => {
   // ── Update Contact ─────────────────────────────────────
   describe('PUT /contacts/:id', () => {
     test('updates contact fields', async () => {
-      const [contact] = await seedContacts(ds, 1);
+      const [contact] = await seedContacts(tenantDs, 1);
 
       const res = await app.request(`/contacts/${contact!.id}`, {
         method: 'PUT',
@@ -208,7 +223,7 @@ describe('Contact Module — Integration Tests', () => {
   // ── Delete Contact ─────────────────────────────────────
   describe('DELETE /contacts/:id', () => {
     test('deletes contact successfully', async () => {
-      const [contact] = await seedContacts(ds, 1);
+      const [contact] = await seedContacts(tenantDs, 1);
 
       const res = await app.request(`/contacts/${contact!.id}`, {
         method: 'DELETE',

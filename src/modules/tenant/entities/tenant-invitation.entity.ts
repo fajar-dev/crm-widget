@@ -1,6 +1,5 @@
 import { Entity, Column, ManyToOne, JoinColumn, Index } from 'typeorm';
 import { BaseEntity } from '../../../core/interfaces/base.entity.ts';
-import { Tenant } from './tenant.entity.ts';
 import { UserRole } from '../../../core/interfaces/auth.interface.ts';
 
 @Entity('tenant_invitations')
@@ -29,9 +28,9 @@ export class TenantInvitation extends BaseEntity {
   @Column({ type: 'timestamp', name: 'accepted_at', nullable: true })
   acceptedAt?: Date;
 
-  @ManyToOne(() => Tenant, { onDelete: 'CASCADE' })
+  @ManyToOne('Tenant', { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'tenant_id' })
-  tenant!: Tenant;
+  tenant!: any;
 
   get isExpired(): boolean {
     return new Date() > this.expiresAt;

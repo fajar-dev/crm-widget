@@ -5,6 +5,7 @@ import { createTestDataSource, destroyTestDataSource, clearAllTables } from '../
 import { TEST_TENANT_ID, authHeaders } from '../../helpers/test-jwt.ts';
 import { seedUser, seedTenant, seedUserTenant, seedFullContext } from '../../helpers/seed.ts';
 import { Container } from '../../../src/container.ts';
+import { createMockTenantDataSourceManager } from '../../helpers/mock-tenant-ds.ts';
 import { tenantRoutes } from '../../../src/routes/api/tenants.ts';
 import { errorHandler } from '../../../src/core/middlewares/error-handler.middleware.ts';
 import { UserRole } from '../../../src/core/interfaces/auth.interface.ts';
@@ -15,7 +16,7 @@ describe('Tenant Module — Integration Tests', () => {
 
   beforeAll(async () => {
     ds = await createTestDataSource();
-    const container = new Container(ds);
+    const container = new Container(ds, createMockTenantDataSourceManager());
 
     app = new Hono();
     app.onError(errorHandler);

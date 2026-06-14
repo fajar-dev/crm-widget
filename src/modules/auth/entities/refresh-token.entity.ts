@@ -1,5 +1,4 @@
 import { Entity, Column, ManyToOne, JoinColumn, PrimaryGeneratedColumn, CreateDateColumn, Index } from 'typeorm';
-import { User } from '../../user/entities/user.entity.ts';
 
 @Entity('refresh_tokens')
 export class RefreshToken {
@@ -23,9 +22,9 @@ export class RefreshToken {
   @Column({ type: 'boolean', name: 'is_revoked', default: false })
   isRevoked!: boolean;
 
-  @ManyToOne(() => User, { onDelete: 'CASCADE' })
+  @ManyToOne('User', { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'user_id' })
-  user!: User;
+  user!: any;
 
   @CreateDateColumn({ name: 'created_at' })
   createdAt!: Date;

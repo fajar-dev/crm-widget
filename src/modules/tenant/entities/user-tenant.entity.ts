@@ -1,7 +1,5 @@
 import { Entity, Column, ManyToOne, JoinColumn, Index, Unique } from 'typeorm';
 import { BaseEntity } from '../../../core/interfaces/base.entity.ts';
-import { User } from '../../user/entities/user.entity.ts';
-import { Tenant } from './tenant.entity.ts';
 import { UserRole } from '../../../core/interfaces/auth.interface.ts';
 import { MembershipStatus } from '../enums/tenant.enum.ts';
 
@@ -28,11 +26,11 @@ export class UserTenant extends BaseEntity {
   @Column({ type: 'timestamp', name: 'joined_at', nullable: true })
   joinedAt?: Date;
 
-  @ManyToOne(() => User, (user) => user.tenants, { onDelete: 'CASCADE' })
+  @ManyToOne('User', 'tenants', { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'user_id' })
-  user!: User;
+  user!: any;
 
-  @ManyToOne(() => Tenant, (tenant) => tenant.members, { onDelete: 'CASCADE' })
+  @ManyToOne('Tenant', 'members', { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'tenant_id' })
-  tenant!: Tenant;
+  tenant!: any;
 }

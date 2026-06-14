@@ -1,9 +1,9 @@
 import { Entity, Column, Index } from 'typeorm';
-import { TenantAwareEntity } from '../../../core/interfaces/tenant-aware.interface.ts';
+import { BaseEntity } from '../../../core/interfaces/base.entity.ts';
 import { ContactStatus, ContactSource } from '../enums/contact.enum.ts';
 
 @Entity('contacts')
-export class Contact extends TenantAwareEntity {
+export class Contact extends BaseEntity {
   @Column({ type: 'varchar', length: 100, name: 'first_name' })
   firstName!: string;
 

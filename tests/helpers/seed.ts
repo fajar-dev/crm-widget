@@ -6,7 +6,7 @@ import { Contact } from '../../src/modules/contacts/entities/contact.entity.ts';
 import { UserRole } from '../../src/core/interfaces/auth.interface.ts';
 import { MembershipStatus } from '../../src/modules/tenant/enums/tenant.enum.ts';
 import { ContactStatus, ContactSource } from '../../src/modules/contacts/enums/contact.enum.ts';
-import { TEST_TENANT_ID, TEST_USER_ID, TEST_TENANT_CODE } from './test-jwt.ts';
+import { TEST_TENANT_ID, TEST_USER_ID, TEST_TENANT_CODE, TEST_TENANT_SLUG } from './test-jwt.ts';
 
 export async function seedUser(ds: DataSource, overrides?: Partial<User>): Promise<User> {
   const repo = ds.getRepository(User);
@@ -32,7 +32,7 @@ export async function seedTenant(ds: DataSource, overrides?: Partial<Tenant>): P
     id: TEST_TENANT_ID,
     name: 'Test Tenant',
     company: 'Test Company',
-    slug: 'test-tenant',
+    slug: TEST_TENANT_SLUG,
     code: TEST_TENANT_CODE,
     isActive: true,
     ...overrides,
@@ -66,13 +66,16 @@ export async function seedFullContext(ds: DataSource): Promise<{ user: User; ten
   return { user, tenant, membership };
 }
 
-export async function seedContacts(ds: DataSource, count = 2): Promise<Contact[]> {
-  const repo = ds.getRepository(Contact);
+/**
+ * Seed contacts into a TENANT DataSource (per-tenant schema).
+ * No tenantId needed — isolation is at schema level.
+ */
+export async function seedContacts(tenantDs: DataSource, count = 2): Promise<Contact[]> {
+  const repo = tenantDs.getRepository(Contact);
   const contacts: Partial<Contact>[] = [];
 
   for (let i = 0; i < count; i++) {
     contacts.push({
-      tenantId: TEST_TENANT_ID,
       firstName: `Contact${i + 1}`,
       lastName: `Test`,
       email: `contact${i + 1}@example.com`,

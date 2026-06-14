@@ -3,6 +3,7 @@ import type { TenantRepository } from './repositories/tenant.repository.ts';
 import type { UserTenantRepository } from './repositories/user-tenant.repository.ts';
 import type { TenantInvitationRepository } from './repositories/tenant-invitation.repository.ts';
 import type { UserRepository } from '../user/repositories/user.repository.ts';
+import type { TenantDataSourceManager } from '../../config/tenant-datasource.ts';
 import type { UserTenant } from './entities/user-tenant.entity.ts';
 import { TenantSerializer, type SerializedTenant, type SerializedMember } from './serializers/tenant.serializer.ts';
 import { UserRole } from '../../core/interfaces/auth.interface.ts';
@@ -16,6 +17,7 @@ export class TenantService implements ITenantService {
     private readonly userTenantRepository: UserTenantRepository,
     private readonly invitationRepository: TenantInvitationRepository,
     private readonly userRepository: UserRepository,
+    private readonly tenantDataSourceManager: TenantDataSourceManager,
   ) {}
 
   async create(userId: string, data: CreateTenantInput): Promise<SerializedTenant> {
@@ -24,6 +26,9 @@ export class TenantService implements ITenantService {
 
     const code = this.generateCode();
     const tenant = await this.tenantRepository.create({ ...data, code });
+
+    // Create per-tenant schema with tables
+    await this.tenantDataSourceManager.createTenantSchema(tenant.slug);
 
     await this.userTenantRepository.create({
       userId,

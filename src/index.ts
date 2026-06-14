@@ -5,6 +5,7 @@ import { logger } from 'hono/logger';
 import { swaggerUI } from '@hono/swagger-ui';
 import { config } from './config/config.ts';
 import { initializeDatabase } from './config/database.ts';
+import { TenantDataSourceManager } from './config/tenant-datasource.ts';
 import { initializeMinio } from './config/minio.ts';
 import { errorHandler } from './core/middlewares/error-handler.middleware.ts';
 import { createApiRouter } from './routes/api.ts';
@@ -48,7 +49,7 @@ app.get('/health', (c) => {
     message: 'OK',
     data: {
       name: config.APP_NAME,
-      version: '0.2.0',
+      version: '0.4.0',
       environment: config.NODE_ENV,
       timestamp: new Date().toISOString(),
     },
@@ -70,10 +71,19 @@ app.get('/docs', swaggerUI({ url: '/openapi.yaml' }));
 // Initialize services and start server
 async function bootstrap() {
   try {
-    const dataSource = await initializeDatabase();
+    const sharedDataSource = await initializeDatabase();
     initializeMinio().catch(console.warn);
 
-    const apiRouter = createApiRouter(dataSource);
+    const tenantDataSourceManager = new TenantDataSourceManager({
+      host: config.DB_HOST,
+      port: config.DB_PORT,
+      username: config.DB_USERNAME,
+      password: config.DB_PASSWORD,
+      database: config.DB_NAME,
+      logging: config.DB_LOGGING,
+    });
+
+    const apiRouter = createApiRouter(sharedDataSource, tenantDataSourceManager);
     app.route('/api', apiRouter);
 
     console.log(`\n🚀 ${config.APP_NAME} is running!`);

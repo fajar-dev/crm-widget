@@ -8,6 +8,7 @@ export interface JwtPayload {
   sub: string;
   email: string;
   tenantId: string | null;
+  tenantSlug: string | null;
   role: UserRole | null;
   type: 'access' | 'refresh';
   iat?: number;
@@ -18,5 +19,6 @@ export interface AuthUser {
   id: string;
   email: string;
   tenantId: string | null;
+  tenantSlug: string | null;
   role: UserRole | null;
 }

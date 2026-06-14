@@ -3,11 +3,11 @@ import type { SerializedContact } from '../serializers/contact.serializer.ts';
 import type { PaginationQuery } from '../../../core/validators/pagination.schema.ts';
 
 export interface IContactService {
-  findAll(tenantId: string, query: PaginationQuery): Promise<{ data: SerializedContact[]; total: number }>;
-  findById(tenantId: string, id: string): Promise<SerializedContact>;
-  create(tenantId: string, data: CreateContactInput): Promise<SerializedContact>;
-  update(tenantId: string, id: string, data: UpdateContactInput): Promise<SerializedContact>;
-  delete(tenantId: string, id: string): Promise<void>;
+  findAll(query: PaginationQuery): Promise<{ data: SerializedContact[]; total: number }>;
+  findById(id: string): Promise<SerializedContact>;
+  create(data: CreateContactInput): Promise<SerializedContact>;
+  update(id: string, data: UpdateContactInput): Promise<SerializedContact>;
+  delete(id: string): Promise<void>;
 }
 
 export interface CreateContactInput {
