@@ -23,6 +23,9 @@ export class Tenant extends BaseEntity {
   @Column({ type: 'boolean', name: 'is_active', default: true })
   isActive!: boolean;
 
+  @Column({ type: 'varchar', length: 500, name: 'logo_path', nullable: true })
+  logoPath?: string;
+
   @OneToMany('UserTenant', 'tenant')
   members!: any[];
 }

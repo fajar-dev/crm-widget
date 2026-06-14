@@ -95,9 +95,44 @@ import { dealRoutes } from './api/deals.ts';
 api.route('/deals', dealRoutes(container));
 ```
 
-### 6. Update swagger.yml
+### 6. Update swagger.yml ⚠️ MANDATORY
 
-Add paths and schemas to `docs/swagger.yml`.
+**ALWAYS** update `docs/swagger.yml` when adding/modifying/removing API endpoints.
+
+Include for each new endpoint:
+1. **Path definition** with correct HTTP method
+2. **Request body schema** (use `$ref` to `components/schemas/`)
+3. **Response schema** wrapped in `ApiResponse`
+4. **Security** — `BearerAuth` for authenticated, nothing for public endpoints
+5. **Tags** — Group by module/feature
+6. **Parameters** — path params, query params, header params (e.g. `X-Session-Token`)
+
+```yaml
+# Example for a new endpoint
+/api/deals:
+  get:
+    summary: List all deals (paginated)
+    tags: [Deals]
+    security:
+      - BearerAuth: []
+    parameters:
+      - $ref: '#/components/parameters/PageParam'
+      - $ref: '#/components/parameters/PerPageParam'
+    responses:
+      '200':
+        description: Paginated list of deals
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/ApiResponse'
+                - type: object
+                  properties:
+                    data:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/DealResponse'
+```
 
 ### 7. Add Tests
 

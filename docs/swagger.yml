@@ -1,15 +1,42 @@
 openapi: '3.1.0'
 info:
   title: CRM Multi-Tenant API
-  version: '0.2.0'
+  version: '0.4.0'
   description: |
     Multi-tenant CRM API built with Hono, TypeORM, and Zod.
     All API endpoints require an `X-Tenant-ID` header with a valid UUID.
     Protected endpoints require a `Bearer` JWT token in the `Authorization` header.
+    Public chat endpoints use session-based auth via `X-Session-Token` header.
 
 servers:
   - url: http://localhost:3000
     description: Local Development
+
+tags:
+  - name: System
+    description: Health check and system endpoints
+  - name: Auth
+    description: Authentication and user management
+  - name: Tenants
+    description: Tenant CRUD and member management
+  - name: Contacts
+    description: Contact management
+  - name: Widget Settings
+    description: Chat widget appearance and behavior settings
+  - name: Chatbot Settings
+    description: AI chatbot model and parameter configuration
+  - name: Form Fields
+    description: Pre-chat form field configuration
+  - name: Sessions
+    description: Chat session management (admin)
+  - name: Conversations
+    description: Conversation and message management (admin)
+  - name: Knowledge
+    description: Knowledge base categories and entries
+  - name: Public Chat
+    description: Public-facing chat widget API (session-based)
+  - name: Playground
+    description: Authenticated chatbot playground for testing
 
 components:
   securitySchemes:
@@ -37,6 +64,22 @@ components:
         type: string
         format: uuid
       description: Resource UUID
+
+    TenantSlug:
+      name: tenantSlug
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Tenant slug identifier
+
+    SessionToken:
+      name: X-Session-Token
+      in: header
+      required: true
+      schema:
+        type: string
+      description: Session token for public chat authentication
 
     PageParam:
       name: page
@@ -217,6 +260,118 @@ components:
           type: string
           format: date-time
 
+    # Tenant Schemas
+    CreateTenantRequest:
+      type: object
+      required: [name, company, slug]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 200
+          example: My Company
+        company:
+          type: string
+          minLength: 1
+          maxLength: 200
+          example: My Company Inc
+        slug:
+          type: string
+          minLength: 2
+          maxLength: 100
+          pattern: '^[a-z0-9-]+$'
+          example: my-company
+
+    UpdateTenantRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 200
+        company:
+          type: string
+          maxLength: 200
+        slug:
+          type: string
+          maxLength: 100
+          pattern: '^[a-z0-9-]+$'
+
+    TenantResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        company:
+          type: string
+        slug:
+          type: string
+        code:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    JoinTenantRequest:
+      type: object
+      required: [code]
+      properties:
+        code:
+          type: string
+          minLength: 1
+          maxLength: 20
+
+    AcceptInvitationRequest:
+      type: object
+      required: [token]
+      properties:
+        token:
+          type: string
+          minLength: 1
+
+    InviteMemberRequest:
+      type: object
+      required: [email]
+      properties:
+        email:
+          type: string
+          format: email
+        role:
+          type: string
+          enum: [super_admin, admin, manager, member]
+          default: member
+
+    UpdateMemberRoleRequest:
+      type: object
+      required: [role]
+      properties:
+        role:
+          type: string
+          enum: [super_admin, admin, manager, member]
+
+    MemberResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        role:
+          type: string
+          enum: [super_admin, admin, manager, member]
+        user:
+          $ref: '#/components/schemas/UserResponse'
+        createdAt:
+          type: string
+          format: date-time
+
     # Contact Schemas
     CreateContactRequest:
       type: object
@@ -334,7 +489,463 @@ components:
           type: string
           format: date-time
 
+    # Widget Settings Schemas
+    WidgetSettingsResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        welcomeMessage:
+          type: string
+        iconPath:
+          type: string
+          nullable: true
+        primaryColor:
+          type: string
+        fontFamily:
+          type: string
+        sessionTimeout:
+          type: integer
+        isActive:
+          type: boolean
+
+    UpdateWidgetSettingsRequest:
+      type: object
+      properties:
+        welcomeMessage:
+          type: string
+        iconPath:
+          type: string
+        primaryColor:
+          type: string
+        fontFamily:
+          type: string
+        sessionTimeout:
+          type: integer
+          minimum: 1
+        isActive:
+          type: boolean
+
+    # Chatbot Settings Schemas
+    ChatbotSettingsResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        systemInstruction:
+          type: string
+        modelName:
+          type: string
+        embeddingModel:
+          type: string
+        temperature:
+          type: number
+        maxTokens:
+          type: integer
+        topP:
+          type: number
+        topK:
+          type: integer
+
+    UpdateChatbotSettingsRequest:
+      type: object
+      properties:
+        systemInstruction:
+          type: string
+        modelName:
+          type: string
+        embeddingModel:
+          type: string
+        temperature:
+          type: number
+          minimum: 0
+          maximum: 2
+        maxTokens:
+          type: integer
+          minimum: 1
+        topP:
+          type: number
+          minimum: 0
+          maximum: 1
+        topK:
+          type: integer
+          minimum: 1
+
+    # Form Field Schemas
+    FormFieldResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        fieldName:
+          type: string
+        label:
+          type: string
+        fieldType:
+          type: string
+          enum: [text, email, phone, number, textarea, select]
+        placeholder:
+          type: string
+          nullable: true
+        options:
+          type: object
+          nullable: true
+        isRequired:
+          type: boolean
+        sortOrder:
+          type: integer
+        isActive:
+          type: boolean
+
+    CreateFormFieldRequest:
+      type: object
+      required: [fieldName, label, fieldType]
+      properties:
+        fieldName:
+          type: string
+          maxLength: 100
+        label:
+          type: string
+          maxLength: 200
+        fieldType:
+          type: string
+          enum: [text, email, phone, number, textarea, select]
+        placeholder:
+          type: string
+          maxLength: 200
+        options:
+          type: object
+        isRequired:
+          type: boolean
+          default: true
+        sortOrder:
+          type: integer
+          default: 0
+
+    UpdateFormFieldRequest:
+      type: object
+      properties:
+        fieldName:
+          type: string
+          maxLength: 100
+        label:
+          type: string
+          maxLength: 200
+        fieldType:
+          type: string
+          enum: [text, email, phone, number, textarea, select]
+        placeholder:
+          type: string
+          maxLength: 200
+        options:
+          type: object
+        isRequired:
+          type: boolean
+        sortOrder:
+          type: integer
+        isActive:
+          type: boolean
+
+    ReorderFormFieldsRequest:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            required: [id, sortOrder]
+            properties:
+              id:
+                type: string
+                format: uuid
+              sortOrder:
+                type: integer
+
+    # Session Schemas
+    SessionResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        sessionToken:
+          type: string
+        ipAddress:
+          type: string
+          nullable: true
+        userAgent:
+          type: string
+          nullable: true
+        expiresAt:
+          type: string
+          format: date-time
+        lastActivityAt:
+          type: string
+          format: date-time
+        values:
+          type: object
+          additionalProperties:
+            type: string
+
+    # Conversation Schemas
+    ConversationResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        sessionId:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [active, ended]
+        totalMessages:
+          type: integer
+        promptTokens:
+          type: integer
+        completionTokens:
+          type: integer
+        totalTokens:
+          type: integer
+        startedAt:
+          type: string
+          format: date-time
+        endedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    MessageResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        conversationId:
+          type: string
+          format: uuid
+        role:
+          type: string
+          enum: [user, assistant, system]
+        content:
+          type: string
+        promptTokens:
+          type: integer
+        completionTokens:
+          type: integer
+        totalTokens:
+          type: integer
+        latencyMs:
+          type: integer
+          nullable: true
+        modelName:
+          type: string
+          nullable: true
+
+    # Knowledge Category Schemas
+    KnowledgeCategoryResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+          nullable: true
+        sortOrder:
+          type: integer
+        isActive:
+          type: boolean
+        knowledgeBaseCount:
+          type: integer
+
+    CreateCategoryRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          maxLength: 200
+        description:
+          type: string
+        sortOrder:
+          type: integer
+          default: 0
+        isActive:
+          type: boolean
+          default: true
+
+    UpdateCategoryRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 200
+        description:
+          type: string
+        sortOrder:
+          type: integer
+        isActive:
+          type: boolean
+
+    # Knowledge Base Schemas
+    KnowledgeBaseResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        categoryId:
+          type: string
+          format: uuid
+        title:
+          type: string
+        content:
+          type: string
+        entryType:
+          type: string
+          enum: [faq, document_chunk]
+        metadata:
+          type: object
+          nullable: true
+        sortOrder:
+          type: integer
+        isActive:
+          type: boolean
+
+    CreateKnowledgeBaseRequest:
+      type: object
+      required: [title, content]
+      properties:
+        title:
+          type: string
+        content:
+          type: string
+        entryType:
+          type: string
+          enum: [faq, document_chunk]
+          default: faq
+        metadata:
+          type: object
+        sortOrder:
+          type: integer
+          default: 0
+        isActive:
+          type: boolean
+          default: true
+
+    UpdateKnowledgeBaseRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        content:
+          type: string
+        entryType:
+          type: string
+          enum: [faq, document_chunk]
+        metadata:
+          type: object
+        sortOrder:
+          type: integer
+        isActive:
+          type: boolean
+
+    BulkCreateKnowledgeBaseRequest:
+      type: object
+      required: [items]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CreateKnowledgeBaseRequest'
+
+    # Public Chat Schemas
+    StartSessionRequest:
+      type: object
+      additionalProperties:
+        type: string
+      example:
+        name: John
+        email: john@example.com
+
+    SendMessageRequest:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+          minLength: 1
+          maxLength: 5000
+
+    ChatResponse:
+      type: object
+      properties:
+        reply:
+          type: string
+        sources:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              title:
+                type: string
+              content:
+                type: string
+              distance:
+                type: number
+        conversationId:
+          type: string
+          format: uuid
+
+    PublicConfigResponse:
+      type: object
+      properties:
+        tenant:
+          type: object
+          properties:
+            name:
+              type: string
+            logoPath:
+              type: string
+              nullable: true
+        widget:
+          $ref: '#/components/schemas/WidgetSettingsResponse'
+        formFields:
+          type: array
+          items:
+            $ref: '#/components/schemas/FormFieldResponse'
+
+    # Playground Schemas
+    PlaygroundRequest:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+          minLength: 1
+          maxLength: 5000
+        history:
+          type: array
+          items:
+            type: object
+            properties:
+              role:
+                type: string
+              content:
+                type: string
+
 paths:
+  # ==================== System ====================
   /health:
     get:
       summary: Health check
@@ -343,6 +954,7 @@ paths:
         '200':
           description: Service is healthy
 
+  # ==================== Auth ====================
   /api/auth/register:
     post:
       summary: Register a new user
@@ -479,6 +1091,278 @@ paths:
         '401':
           description: Unauthorized
 
+  # ==================== Tenants ====================
+  /api/tenants:
+    get:
+      summary: List tenants for current user
+      tags: [Tenants]
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of tenants
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/TenantResponse'
+
+    post:
+      summary: Create a new tenant
+      tags: [Tenants]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTenantRequest'
+      responses:
+        '201':
+          description: Tenant created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/TenantResponse'
+        '422':
+          description: Validation error
+
+  /api/tenants/join:
+    post:
+      summary: Join a tenant by invite code
+      tags: [Tenants]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JoinTenantRequest'
+      responses:
+        '200':
+          description: Joined tenant successfully
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/TenantResponse'
+        '404':
+          description: Invalid invite code
+
+  /api/tenants/accept-invite:
+    post:
+      summary: Accept a tenant invitation
+      tags: [Tenants]
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AcceptInvitationRequest'
+      responses:
+        '200':
+          description: Invitation accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '404':
+          description: Invalid or expired invitation token
+
+  /api/tenants/{id}:
+    get:
+      summary: Get tenant by ID
+      tags: [Tenants]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PathId'
+      responses:
+        '200':
+          description: Tenant details
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/TenantResponse'
+        '404':
+          description: Tenant not found
+
+    put:
+      summary: Update a tenant
+      tags: [Tenants]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PathId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTenantRequest'
+      responses:
+        '200':
+          description: Tenant updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/TenantResponse'
+        '404':
+          description: Tenant not found
+
+  /api/tenants/{id}/regenerate-code:
+    post:
+      summary: Regenerate tenant invite code
+      tags: [Tenants]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PathId'
+      responses:
+        '200':
+          description: Invite code regenerated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/TenantResponse'
+        '404':
+          description: Tenant not found
+
+  /api/tenants/{id}/members:
+    get:
+      summary: List tenant members
+      tags: [Tenants]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PathId'
+      responses:
+        '200':
+          description: List of members
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/MemberResponse'
+
+  /api/tenants/{id}/members/invite:
+    post:
+      summary: Invite a member to tenant
+      tags: [Tenants]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PathId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InviteMemberRequest'
+      responses:
+        '200':
+          description: Invitation sent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '404':
+          description: Tenant not found
+        '422':
+          description: Validation error
+
+  /api/tenants/{id}/members/{userId}:
+    put:
+      summary: Update member role
+      tags: [Tenants]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PathId'
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: User UUID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateMemberRoleRequest'
+      responses:
+        '200':
+          description: Member role updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '404':
+          description: Member not found
+
+    delete:
+      summary: Remove member from tenant
+      tags: [Tenants]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PathId'
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: User UUID
+      responses:
+        '200':
+          description: Member removed
+        '404':
+          description: Member not found
+
+  # ==================== Contacts ====================
   /api/contacts:
     get:
       summary: List all contacts (paginated)
@@ -603,3 +1487,896 @@ paths:
           description: Contact deleted
         '404':
           description: Contact not found
+
+  # ==================== Widget Settings ====================
+  /api/widget-settings:
+    get:
+      summary: Get widget settings
+      tags: [Widget Settings]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+      responses:
+        '200':
+          description: Widget settings
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/WidgetSettingsResponse'
+
+    put:
+      summary: Update widget settings
+      tags: [Widget Settings]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateWidgetSettingsRequest'
+      responses:
+        '200':
+          description: Widget settings updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/WidgetSettingsResponse'
+        '422':
+          description: Validation error
+
+  # ==================== Chatbot Settings ====================
+  /api/chatbot-settings:
+    get:
+      summary: Get chatbot settings
+      tags: [Chatbot Settings]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+      responses:
+        '200':
+          description: Chatbot settings
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/ChatbotSettingsResponse'
+
+    put:
+      summary: Update chatbot settings
+      tags: [Chatbot Settings]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateChatbotSettingsRequest'
+      responses:
+        '200':
+          description: Chatbot settings updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/ChatbotSettingsResponse'
+        '422':
+          description: Validation error
+
+  # ==================== Form Fields ====================
+  /api/chatbot-form-fields:
+    get:
+      summary: List all form fields
+      tags: [Form Fields]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+      responses:
+        '200':
+          description: List of form fields
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/FormFieldResponse'
+
+    post:
+      summary: Create a new form field
+      tags: [Form Fields]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateFormFieldRequest'
+      responses:
+        '201':
+          description: Form field created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/FormFieldResponse'
+        '422':
+          description: Validation error
+
+  /api/chatbot-form-fields/reorder:
+    put:
+      summary: Reorder form fields
+      tags: [Form Fields]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReorderFormFieldsRequest'
+      responses:
+        '200':
+          description: Form fields reordered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiResponse'
+        '422':
+          description: Validation error
+
+  /api/chatbot-form-fields/{id}:
+    put:
+      summary: Update a form field
+      tags: [Form Fields]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/PathId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateFormFieldRequest'
+      responses:
+        '200':
+          description: Form field updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/FormFieldResponse'
+        '404':
+          description: Form field not found
+        '422':
+          description: Validation error
+
+    delete:
+      summary: Delete a form field
+      tags: [Form Fields]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/PathId'
+      responses:
+        '200':
+          description: Form field deleted
+        '404':
+          description: Form field not found
+
+  # ==================== Sessions ====================
+  /api/chatbot-sessions:
+    get:
+      summary: List all chat sessions (paginated)
+      tags: [Sessions]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PerPageParam'
+        - $ref: '#/components/parameters/SortByParam'
+        - $ref: '#/components/parameters/SortOrderParam'
+        - $ref: '#/components/parameters/SearchParam'
+      responses:
+        '200':
+          description: Paginated list of sessions
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/SessionResponse'
+                      meta:
+                        $ref: '#/components/schemas/PaginationMeta'
+
+  /api/chatbot-sessions/{id}:
+    get:
+      summary: Get session by ID
+      tags: [Sessions]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/PathId'
+      responses:
+        '200':
+          description: Session details
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/SessionResponse'
+        '404':
+          description: Session not found
+
+    delete:
+      summary: Delete a session
+      tags: [Sessions]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/PathId'
+      responses:
+        '200':
+          description: Session deleted
+        '404':
+          description: Session not found
+
+  # ==================== Conversations ====================
+  /api/chatbot-conversations:
+    get:
+      summary: List all conversations (paginated)
+      tags: [Conversations]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PerPageParam'
+        - $ref: '#/components/parameters/SortByParam'
+        - $ref: '#/components/parameters/SortOrderParam'
+        - $ref: '#/components/parameters/SearchParam'
+      responses:
+        '200':
+          description: Paginated list of conversations
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/ConversationResponse'
+                      meta:
+                        $ref: '#/components/schemas/PaginationMeta'
+
+  /api/chatbot-conversations/{id}:
+    get:
+      summary: Get conversation by ID
+      tags: [Conversations]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/PathId'
+      responses:
+        '200':
+          description: Conversation details
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/ConversationResponse'
+        '404':
+          description: Conversation not found
+
+    delete:
+      summary: Delete a conversation
+      tags: [Conversations]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/PathId'
+      responses:
+        '200':
+          description: Conversation deleted
+        '404':
+          description: Conversation not found
+
+  /api/chatbot-conversations/{id}/messages:
+    get:
+      summary: Get messages for a conversation (paginated)
+      tags: [Conversations]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/PathId'
+        - $ref: '#/components/parameters/PageParam'
+        - $ref: '#/components/parameters/PerPageParam'
+        - $ref: '#/components/parameters/SortByParam'
+        - $ref: '#/components/parameters/SortOrderParam'
+      responses:
+        '200':
+          description: Paginated list of messages
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/MessageResponse'
+                      meta:
+                        $ref: '#/components/schemas/PaginationMeta'
+        '404':
+          description: Conversation not found
+
+  # ==================== Knowledge ====================
+  /api/knowledge-categories:
+    get:
+      summary: List all knowledge categories
+      tags: [Knowledge]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+      responses:
+        '200':
+          description: List of categories
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/KnowledgeCategoryResponse'
+
+    post:
+      summary: Create a knowledge category
+      tags: [Knowledge]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCategoryRequest'
+      responses:
+        '201':
+          description: Category created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/KnowledgeCategoryResponse'
+        '422':
+          description: Validation error
+
+  /api/knowledge-categories/{id}:
+    get:
+      summary: Get knowledge category by ID
+      tags: [Knowledge]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/PathId'
+      responses:
+        '200':
+          description: Category details
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/KnowledgeCategoryResponse'
+        '404':
+          description: Category not found
+
+    put:
+      summary: Update a knowledge category
+      tags: [Knowledge]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/PathId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCategoryRequest'
+      responses:
+        '200':
+          description: Category updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/KnowledgeCategoryResponse'
+        '404':
+          description: Category not found
+        '422':
+          description: Validation error
+
+    delete:
+      summary: Delete a knowledge category
+      tags: [Knowledge]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/PathId'
+      responses:
+        '200':
+          description: Category deleted
+        '404':
+          description: Category not found
+
+  /api/knowledge-categories/{catId}/knowledge-bases:
+    get:
+      summary: List knowledge bases in a category
+      tags: [Knowledge]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - name: catId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Category UUID
+      responses:
+        '200':
+          description: List of knowledge bases
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/KnowledgeBaseResponse'
+        '404':
+          description: Category not found
+
+    post:
+      summary: Create a knowledge base entry in a category
+      tags: [Knowledge]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - name: catId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Category UUID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateKnowledgeBaseRequest'
+      responses:
+        '201':
+          description: Knowledge base entry created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/KnowledgeBaseResponse'
+        '404':
+          description: Category not found
+        '422':
+          description: Validation error
+
+  /api/knowledge-categories/{catId}/knowledge-bases/bulk:
+    post:
+      summary: Bulk create knowledge base entries in a category
+      tags: [Knowledge]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - name: catId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Category UUID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BulkCreateKnowledgeBaseRequest'
+      responses:
+        '201':
+          description: Knowledge base entries created
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/KnowledgeBaseResponse'
+        '404':
+          description: Category not found
+        '422':
+          description: Validation error
+
+  /api/knowledge-bases/{id}:
+    get:
+      summary: Get knowledge base entry by ID
+      tags: [Knowledge]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/PathId'
+      responses:
+        '200':
+          description: Knowledge base entry details
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/KnowledgeBaseResponse'
+        '404':
+          description: Knowledge base entry not found
+
+    put:
+      summary: Update a knowledge base entry
+      tags: [Knowledge]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/PathId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateKnowledgeBaseRequest'
+      responses:
+        '200':
+          description: Knowledge base entry updated
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/KnowledgeBaseResponse'
+        '404':
+          description: Knowledge base entry not found
+        '422':
+          description: Validation error
+
+    delete:
+      summary: Delete a knowledge base entry
+      tags: [Knowledge]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+        - $ref: '#/components/parameters/PathId'
+      responses:
+        '200':
+          description: Knowledge base entry deleted
+        '404':
+          description: Knowledge base entry not found
+
+  # ==================== Playground ====================
+  /api/playground:
+    post:
+      summary: Test chatbot in playground mode
+      tags: [Playground]
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TenantId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PlaygroundRequest'
+      responses:
+        '200':
+          description: Chatbot response
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/ChatResponse'
+        '422':
+          description: Validation error
+
+  # ==================== Public Chat ====================
+  /api/chat/{tenantSlug}/config:
+    get:
+      summary: Get public widget configuration
+      tags: [Public Chat]
+      parameters:
+        - $ref: '#/components/parameters/TenantSlug'
+      responses:
+        '200':
+          description: Widget configuration for the tenant
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/PublicConfigResponse'
+        '404':
+          description: Tenant not found
+
+  /api/chat/{tenantSlug}/sessions:
+    post:
+      summary: Start a new chat session (pre-chat form submission)
+      tags: [Public Chat]
+      parameters:
+        - $ref: '#/components/parameters/TenantSlug'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StartSessionRequest'
+      responses:
+        '201':
+          description: Session started
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/SessionResponse'
+        '404':
+          description: Tenant not found
+        '422':
+          description: Validation error
+
+  /api/chat/{tenantSlug}/sessions/{token}:
+    get:
+      summary: Get session by token
+      tags: [Public Chat]
+      parameters:
+        - $ref: '#/components/parameters/TenantSlug'
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Session token
+      responses:
+        '200':
+          description: Session details
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/SessionResponse'
+        '404':
+          description: Session not found or expired
+
+  /api/chat/{tenantSlug}/conversations:
+    post:
+      summary: Start a new conversation
+      tags: [Public Chat]
+      parameters:
+        - $ref: '#/components/parameters/TenantSlug'
+        - $ref: '#/components/parameters/SessionToken'
+      responses:
+        '201':
+          description: Conversation started
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/ConversationResponse'
+        '401':
+          description: Invalid or missing session token
+        '404':
+          description: Tenant not found
+
+  /api/chat/{tenantSlug}/conversations/{convId}/messages:
+    post:
+      summary: Send a message in a conversation
+      tags: [Public Chat]
+      parameters:
+        - $ref: '#/components/parameters/TenantSlug'
+        - name: convId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Conversation UUID
+        - $ref: '#/components/parameters/SessionToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SendMessageRequest'
+      responses:
+        '200':
+          description: Message sent and AI response received
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/ChatResponse'
+        '401':
+          description: Invalid or missing session token
+        '404':
+          description: Conversation not found
+        '422':
+          description: Validation error
+
+  /api/chat/{tenantSlug}/conversations/{convId}/end:
+    post:
+      summary: End a conversation
+      tags: [Public Chat]
+      parameters:
+        - $ref: '#/components/parameters/TenantSlug'
+        - name: convId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Conversation UUID
+        - $ref: '#/components/parameters/SessionToken'
+      responses:
+        '200':
+          description: Conversation ended
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiResponse'
+                  - type: object
+                    properties:
+                      data:
+                        $ref: '#/components/schemas/ConversationResponse'
+        '401':
+          description: Invalid or missing session token
+        '404':
+          description: Conversation not found

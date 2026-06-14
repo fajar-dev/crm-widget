@@ -26,6 +26,11 @@ const envSchema = z.object({
   MINIO_ACCESS_KEY: z.string().default('minioadmin'),
   MINIO_SECRET_KEY: z.string().default('minioadmin'),
   MINIO_BUCKET: z.string().default('crm-files'),
+
+  // Gemini AI
+  GEMINI_API_KEY: z.string().default(''),
+  GEMINI_MODEL: z.string().default('gemini-2.0-flash'),
+  GEMINI_EMBEDDING_MODEL: z.string().default('text-embedding-004'),
 });
 
 export type EnvConfig = z.infer<typeof envSchema>;

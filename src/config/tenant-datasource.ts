@@ -2,12 +2,32 @@ import 'reflect-metadata';
 import { DataSource } from 'typeorm';
 import type { EnvConfig } from './config.ts';
 import { Contact } from '../modules/contacts/entities/contact.entity.ts';
+import { WidgetSettings } from '../modules/chatbot/entities/widget-settings.entity.ts';
+import { ChatbotSettings } from '../modules/chatbot/entities/chatbot-settings.entity.ts';
+import { ChatbotFormField } from '../modules/chatbot/entities/chatbot-form-field.entity.ts';
+import { ChatbotSession } from '../modules/chatbot/entities/chatbot-session.entity.ts';
+import { ChatbotSessionValue } from '../modules/chatbot/entities/chatbot-session-value.entity.ts';
+import { ChatbotConversation } from '../modules/conversation/entities/chatbot-conversation.entity.ts';
+import { ChatbotMessage } from '../modules/conversation/entities/chatbot-message.entity.ts';
+import { KnowledgeCategory } from '../modules/knowledge/entities/knowledge-category.entity.ts';
+import { KnowledgeBase } from '../modules/knowledge/entities/knowledge-base.entity.ts';
 
 /**
  * List of entities that live in per-tenant schemas.
  * Add new tenant-scoped entities here.
  */
-const TENANT_ENTITIES = [Contact];
+const TENANT_ENTITIES = [
+  Contact,
+  WidgetSettings,
+  ChatbotSettings,
+  ChatbotFormField,
+  ChatbotSession,
+  ChatbotSessionValue,
+  ChatbotConversation,
+  ChatbotMessage,
+  KnowledgeCategory,
+  KnowledgeBase,
+];
 
 /**
  * Manages per-tenant PostgreSQL schema connections.
@@ -73,6 +93,8 @@ export class TenantDataSourceManager {
 
     await tempDs.initialize();
     await tempDs.query(`CREATE SCHEMA IF NOT EXISTS "${schemaName}"`);
+    await tempDs.query(`SET search_path TO "${schemaName}"`);
+    await tempDs.query(`CREATE EXTENSION IF NOT EXISTS vector SCHEMA "${schemaName}"`);
     await tempDs.destroy();
 
     // Now create a DataSource with the new schema and synchronize

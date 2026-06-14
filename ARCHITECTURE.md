@@ -144,9 +144,19 @@ public schema:
   refresh_tokens     — Auth tokens
 
 tenant_<slug> schema (one per tenant):
-  contacts           — Tenant-scoped
-  (future entities)  — All tenant-scoped entities live here
+  contacts                — Tenant-scoped
+  widget_settings         — Widget UI config (1:1 per tenant)
+  chatbot_settings        — AI/model config (1:1 per tenant)
+  chatbot_form_fields     — Custom pre-chat form definitions
+  chatbot_sessions        — Visitor sessions (token + expiry)
+  chatbot_session_values  — Key-value form data per session
+  chatbot_conversations   — Chat threads linked to sessions
+  chatbot_messages        — Messages per conversation
+  knowledge_categories    — Knowledge grouping/folders
+  knowledge_bases         — Knowledge content + pgvector embeddings
 ```
+
+> **Note**: pgvector extension is enabled per tenant schema via `CREATE EXTENSION IF NOT EXISTS vector`.
 
 ### Strategy
 
@@ -159,9 +169,10 @@ tenant_<slug> schema (one per tenant):
 
 | Middleware | Purpose | Used By |
 |------------|---------|--------|
-| `authMiddleware` | Verify JWT, set `user` in context | `/tenants`, `/contacts` |
-| `requireTenant` | Require `tenantId` in JWT (non-null) | `/contacts` |
+| `authMiddleware` | Verify JWT, set `user` in context | `/tenants`, `/contacts`, all chatbot admin routes |
+| `requireTenant` | Require `tenantId` in JWT (non-null) | `/contacts`, chatbot admin routes |
 | `requireRole(...roles)` | Check user role against allowed roles | Specific routes |
+| *(none)* | Public chat uses `X-Session-Token` header | `/chat/:tenantSlug/*` |
 
 ## Module Structure (Hybrid)
 
@@ -208,10 +219,61 @@ routes/api/
 ├── auth.ts                        # No middleware (public)
 ├── tenants.ts                     # authMiddleware only
 ├── contacts.ts                    # authMiddleware + requireTenant
-└── users.ts                       # User route definitions
+├── users.ts                       # User route definitions
+├── widget-settings.ts             # authMiddleware + requireTenant
+├── chatbot-settings.ts            # authMiddleware + requireTenant
+├── chatbot-form-fields.ts         # authMiddleware + requireTenant
+├── chatbot-sessions.ts            # authMiddleware + requireTenant
+├── chatbot-conversations.ts       # authMiddleware + requireTenant
+├── knowledge-categories.ts        # authMiddleware + requireTenant
+├── knowledge-bases.ts             # authMiddleware + requireTenant
+├── chat.ts                        # NO auth — public chat (session-based)
+└── playground.ts                  # authMiddleware + requireTenant
 ```
 
 > **Note**: User module is separate from Auth module. Auth handles authentication (login, register, tokens, switch-tenant). User handles user profile. Tenant handles workspace management, member management, and invitations.
+
+## Chatbot System
+
+### Pipeline (Agentic RAG via Google ADK)
+
+```
+Visitor → Form → Session → Conversation → Messages
+                                            │
+                                            ▼
+                                    ChatService (orchestrator)
+                                            │
+                                            ▼
+                                    AgentService (ADK LlmAgent)
+                                    ├── Answer directly (greetings)
+                                    └── Call searchKnowledge tool
+                                            │
+                                            ▼
+                                    RetrievalService → EmbeddingService
+                                            │
+                                            ▼
+                                    pgvector cosine similarity search
+```
+
+### Key Components
+
+| Component | Description |
+|-----------|-------------|
+| `ChatbotService` | Settings CRUD, form fields, session management with token expiry |
+| `KnowledgeService` | Category + knowledge base CRUD, auto-embedding on create/update |
+| `ConversationService` | Conversation lifecycle + message storage |
+| `AgentService` | Google ADK `LlmAgent` with `FunctionTool` for knowledge search |
+| `RetrievalService` | pgvector cosine similarity search on knowledge_bases |
+| `EmbeddingService` | Gemini `text-embedding-004` embedding generation |
+
+### Session Flow
+
+1. Widget loads → `GET /chat/:slug/config` → form fields + settings
+2. Visitor fills form → `POST /chat/:slug/sessions` → `sessionToken` + `expiresAt`
+3. Start conversation → `POST /chat/:slug/conversations` (with `X-Session-Token`)
+4. Send messages → `POST /chat/:slug/conversations/:id/messages` (resets expiry)
+5. End conversation → `POST /chat/:slug/conversations/:id/end`
+6. New conversation → repeat step 3 (same session, fresh memory)
 
 ## API Documentation
 

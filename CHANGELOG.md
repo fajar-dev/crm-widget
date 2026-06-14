@@ -5,6 +5,72 @@ This changelog is designed to be readable by both humans and AI models.
 
 ---
 
+## [0.4.0] — 2026-06-14
+
+### Added — Chatbot System (Agentic RAG)
+
+Complete multi-tenant chatbot system with **Google ADK** (Agent Development Kit) powered RAG pipeline.
+
+#### New Modules
+
+- **Chatbot Module** — Widget settings (UI), chatbot settings (AI), custom form fields, session management
+- **Knowledge Module** — Knowledge categories + bases with **pgvector** embeddings and cosine similarity search
+- **Conversation Module** — Conversation lifecycle, message storage with token/latency tracking
+- **Chat Module** — Core RAG engine: `AgentService` (ADK), `RetrievalService`, `EmbeddingService`, `ChatService` (orchestrator)
+
+#### New Dependencies
+
+- `@google/adk` — Google Agent Development Kit (LlmAgent, FunctionTool, InMemoryRunner)
+- `@google/generative-ai` — Gemini API client
+- `pgvector` — PostgreSQL vector similarity search
+
+#### Public API Endpoints (NO auth — session-based)
+
+- `GET /chat/:tenantSlug/config` — Widget config + form fields
+- `POST /chat/:tenantSlug/sessions` — Create session from form data
+- `GET /chat/:tenantSlug/sessions/:token` — Recover session
+- `POST /chat/:tenantSlug/conversations` — Start conversation
+- `POST /chat/:tenantSlug/conversations/:id/messages` — Send message (triggers RAG)
+- `POST /chat/:tenantSlug/conversations/:id/end` — End conversation
+
+#### Admin API Endpoints (auth + tenant)
+
+- Widget Settings: `GET/PUT /widget-settings`
+- Chatbot Settings: `GET/PUT /chatbot-settings`
+- Form Fields: `GET/POST/PUT/DELETE /chatbot-form-fields`, `PUT /chatbot-form-fields/reorder`
+- Sessions: `GET/DELETE /chatbot-sessions`
+- Conversations: `GET/DELETE /chatbot-conversations`
+- Knowledge Categories: Full CRUD `/knowledge-categories`
+- Knowledge Bases: CRUD + bulk import `/knowledge-bases`
+- Playground: `POST /playground` (skip session validation)
+
+### Changed
+
+- **PostgreSQL image**: `postgres:17-alpine` → `pgvector/pgvector:pg17`
+- **Tenant entity**: Added `logo_path` column
+- **Tenant schema creation**: Auto-creates `vector` extension per schema
+- **Container**: Added `chatbotService()`, `knowledgeService()`, `conversationService()`, `chatService()` factories
+
+### Technical Context (for AI agents)
+
+**Chatbot Pipeline**:
+```
+User msg → validate session → load history → AgentService (ADK)
+                                                ├── greetings → direct response
+                                                └── knowledge query → FunctionTool
+                                                        ↓
+                                                  embed query → pgvector search
+                                                        ↓
+                                                  LLM generates answer with sources
+                                                        ↓
+                                              save messages + refresh session expiry
+```
+
+**Session lifecycle**: Token expires after N minutes (configurable). Each chat resets the timer. Session values stored as key-value pairs for flexible form data.
+
+---
+
+
 ## [0.3.0] — 2026-06-14
 
 ### Changed — Multi-Tenancy Refactor (Shared Users)

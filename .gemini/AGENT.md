@@ -2,9 +2,9 @@
 
 ## Project Context
 
-- **Stack**: Bun + Hono + TypeORM + PostgreSQL + Zod + MinIO
+- **Stack**: Bun + Hono + TypeORM + PostgreSQL + Zod + MinIO + Google ADK + Gemini + pgvector
 - **Architecture**: Multi-tenant (shared users + tenant pivot), Clean Architecture, OOP + Constructor DI
-- **Version**: 0.3.0
+- **Version**: 0.4.0
 
 ## MUST Follow
 
@@ -24,6 +24,14 @@
 14. **ApiResponse** — Use `ApiResponse.success()`, `.created()`, `.paginated()` for all responses
 15. **Middleware split** — `authMiddleware` (JWT verify), `requireTenant` (require tenantId), `requireRole(...roles)`
 16. **Tests** — Add integration tests in `tests/modules/{name}/` for every new module
+17. **Swagger** — **ALWAYS** update `docs/swagger.yml` when adding, modifying, or removing API endpoints. Include:
+    - Path definitions with correct HTTP methods
+    - Request body schemas (using `$ref` to reusable schemas)
+    - Response schemas
+    - Security requirements (`BearerAuth` for auth, none for public)
+    - Tags for grouping
+    - Parameters (path, query, header)
+18. **Tenant-scoped entities** — No `tenant_id` column; use schema-per-tenant isolation. Use string-based TypeORM relation refs: `@ManyToOne('EntityName', 'property')`
 
 ## MUST NOT
 
@@ -60,7 +68,7 @@ enums/{module}.enum.ts               # In subdirectory
    - Use `authMiddleware` + `requireTenant` for tenant-scoped routes
    - Use `authMiddleware` only for global routes
 4. Mount in `src/routes/api.ts`
-5. Add paths to `docs/swagger.yml`
+5. **Update `docs/swagger.yml`** — Add ALL new paths, request/response schemas, parameters, and tags
 6. Create `tests/modules/{name}/{name}.test.ts`
 7. Update `CHANGELOG.md`
 

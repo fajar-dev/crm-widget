@@ -15,15 +15,18 @@
     "migration:revert": "bunx typeorm migration:revert -d src/config/database.ts"
   },
   "dependencies": {
-    "hono": "^4.7.0",
+    "@google/adk": "^1.2.0",
+    "@google/generative-ai": "^0.24.1",
     "@hono/swagger-ui": "^0.5.0",
     "@hono/zod-validator": "^0.4.0",
-    "zod": "^3.25.0",
-    "typeorm": "^0.3.20",
-    "reflect-metadata": "^0.2.2",
-    "pg": "^8.16.0",
+    "hono": "^4.7.0",
     "minio": "^8.0.0",
-    "uuid": "^11.1.0"
+    "pg": "^8.16.0",
+    "pgvector": "^0.3.0",
+    "reflect-metadata": "^0.2.2",
+    "typeorm": "^0.3.20",
+    "uuid": "^11.1.0",
+    "zod": "^3.25.0"
   },
   "devDependencies": {
     "@types/bun": "latest",
