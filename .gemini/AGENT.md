@@ -3,8 +3,8 @@
 ## Project Context
 
 - **Stack**: Bun + Hono + TypeORM + PostgreSQL + Zod + MinIO
-- **Architecture**: Multi-tenant (row-level), Clean Architecture, OOP + Constructor DI
-- **Version**: 0.2.0
+- **Architecture**: Multi-tenant (shared users + tenant pivot), Clean Architecture, OOP + Constructor DI
+- **Version**: 0.3.0
 
 ## MUST Follow
 
@@ -15,11 +15,15 @@
 5. **Container DI** — Register services in `src/container.ts`
 6. **Plain Hono** — Do NOT use `OpenAPIHono` or `@hono/zod-openapi`
 7. **validate()** — Use `validate('json', schema)` from `core/helpers/validator.ts`
-8. **Entities extend TenantAwareEntity** — For automatic `tenant_id` column
-9. **Repositories extend BaseTenantRepository** — For tenant-scoped queries
-10. **Serializers** — Always return serialized DTOs from services, use `collection()` (not `serializeMany`)
-11. **ApiResponse** — Use `ApiResponse.success()`, `.created()`, `.paginated()` for all responses
-12. **Tests** — Add integration tests in `tests/modules/{name}/` for every new module
+8. **Global entities extend BaseEntity** — `User`, `Tenant`, `UserTenant` use `BaseEntity` (no `tenant_id`)
+9. **Tenant-scoped entities extend TenantAwareEntity** — `Contact` and other tenant data use `TenantAwareEntity`
+10. **Tenant-scoped repositories extend BaseTenantRepository** — For auto tenant filtering
+11. **Global repositories use direct TypeORM Repository** — `UserRepository`, `TenantRepository` etc.
+12. **UserRole**: Only `OWNER`, `MANAGER`, `MEMBER` — defined in `core/interfaces/auth.interface.ts`
+13. **Serializers** — Always return serialized DTOs from services, use `collection()` (not `serializeMany`)
+14. **ApiResponse** — Use `ApiResponse.success()`, `.created()`, `.paginated()` for all responses
+15. **Middleware split** — `authMiddleware` (JWT verify), `requireTenant` (require tenantId), `requireRole(...roles)`
+16. **Tests** — Add integration tests in `tests/modules/{name}/` for every new module
 
 ## MUST NOT
 
@@ -29,6 +33,8 @@
 4. Do NOT use default exports (except `src/index.ts`)
 5. Do NOT skip the Container — always wire dependencies through `container.ts`
 6. Do NOT return raw TypeORM entities from API — always serialize
+7. Do NOT put `tenant_id` on User entity — User is global
+8. Do NOT put `role` on User entity — role is per-tenant in `UserTenant` pivot
 
 ## File Naming
 
@@ -48,7 +54,11 @@ enums/{module}.enum.ts               # In subdirectory
 
 1. Create `src/modules/{name}/` with all files (see MODULE_TEMPLATE.md)
 2. Add service factory to `src/container.ts`
+   - Global service: `myService(): MyService` (no tenantId)
+   - Tenant-scoped: `myService(tenantId: string): MyService`
 3. Create route file in `src/routes/api/{name}.ts`
+   - Use `authMiddleware` + `requireTenant` for tenant-scoped routes
+   - Use `authMiddleware` only for global routes
 4. Mount in `src/routes/api.ts`
 5. Add paths to `docs/swagger.yml`
 6. Create `tests/modules/{name}/{name}.test.ts`
@@ -62,6 +72,9 @@ enums/{module}.enum.ts               # In subdirectory
 | `src/routes/api.ts` | Route aggregator — all module mounting |
 | `src/routes/api/` | Route definitions — HTTP routes per module |
 | `src/modules/{name}/{name}.module.ts` | DI wiring — returns Controller instance |
+| `src/core/interfaces/base.entity.ts` | BaseEntity for global entities |
+| `src/core/interfaces/tenant-aware.interface.ts` | TenantAwareEntity for tenant-scoped entities |
+| `src/core/middlewares/auth.middleware.ts` | authMiddleware, requireTenant, requireRole |
 | `docs/swagger.yml` | API documentation |
 | `src/core/helpers/validator.ts` | Zod validation middleware |
 | `src/core/repositories/base.repository.ts` | Tenant-scoped base repository |

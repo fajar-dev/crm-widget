@@ -13,9 +13,9 @@ export class RefreshToken {
   @Index()
   userId!: string;
 
-  @Column({ type: 'uuid', name: 'tenant_id' })
+  @Column({ type: 'uuid', name: 'tenant_id', nullable: true })
   @Index()
-  tenantId!: string;
+  tenantId?: string;
 
   @Column({ type: 'timestamp', name: 'expires_at' })
   expiresAt!: Date;

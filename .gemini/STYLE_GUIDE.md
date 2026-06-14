@@ -25,11 +25,11 @@ import { createContactSchema } from './validators/contact.validator.ts';
 
 ## Controller Pattern
 
-Controllers only contain public handler methods — no router, no route definitions:
+### Tenant-Scoped Controller (uses service factory)
 
 ```typescript
-export class ExampleController {
-  constructor(private readonly serviceFactory: (tenantId: string) => ExampleService) {}
+export class ContactController {
+  constructor(private readonly serviceFactory: (tenantId: string) => ContactService) {}
 
   async index(c: any) {
     const tenantId = c.get('tenantId');
@@ -38,13 +38,24 @@ export class ExampleController {
     const result = await service.findAll(tenantId, query);
     return ApiResponse.paginated(c, result.data, result.total, query.page, query.perPage);
   }
-
-  async show(c: any) { /* ... */ }
-  async store(c: any) { /* ... */ }
-  async update(c: any) { /* ... */ }
-  async destroy(c: any) { /* ... */ }
 }
 ```
+
+### Global Controller (takes service directly)
+
+```typescript
+export class AuthController {
+  constructor(private readonly service: AuthService) {}
+
+  async register(c: any) {
+    const body = c.req.valid('json') as RegisterInput;
+    const result = await this.service.register(body);
+    return ApiResponse.created(c, result, 'User registered successfully');
+  }
+}
+```
+
+> **Rule**: Auth and Tenant controllers take the service directly. Tenant-scoped controllers (Contacts, Deals, etc.) use a `serviceFactory`.
 
 ## Service Pattern
 
@@ -77,43 +88,91 @@ export type UpdateInput = z.infer<typeof updateSchema>;
 
 ## Module Pattern
 
-Modules handle DI wiring and return a Controller instance (not a router):
+### Tenant-Scoped Module (passes factory)
 
 ```typescript
-import type { Container } from '../../container.ts';
-import { ExampleController } from './example.controller.ts';
+export function createContactModule(container: Container): ContactController {
+  return new ContactController((tenantId) => container.contactService(tenantId));
+}
+```
 
-export function createExampleModule(container: Container): ExampleController {
-  return new ExampleController((tenantId) => container.exampleService(tenantId));
+### Global Module (passes service directly)
+
+```typescript
+export function createAuthModule(container: Container): AuthController {
+  return new AuthController(container.authService());
 }
 ```
 
 ## Route Pattern
 
-Route definitions live in `routes/api/` and map URLs to controller methods:
+### Tenant-Scoped Routes (require authMiddleware + requireTenant)
 
 ```typescript
-// src/routes/api/examples.ts
-import { Hono } from 'hono';
-import type { Container } from '../../container.ts';
-import { createExampleModule } from '../../modules/example/example.module.ts';
-import { createExampleSchema, updateExampleSchema } from '../../modules/example/validators/example.validator.ts';
-import { paginationSchema } from '../../core/validators/pagination.schema.ts';
-import { validate } from '../../core/helpers/validator.ts';
-import { authMiddleware } from '../../core/middlewares/auth.middleware.ts';
+import { authMiddleware, requireTenant } from '../../core/middlewares/auth.middleware.ts';
 
-export function exampleRoutes(container: Container): Hono {
+export function contactRoutes(container: Container): Hono {
   const router = new Hono();
-  const controller = createExampleModule(container);
+  const controller = createContactModule(container);
+
+  router.use('/*', authMiddleware, requireTenant);
+  router.get('/', validate('query', paginationSchema), (c) => controller.index(c));
+  // ...
+  return router;
+}
+```
+
+### Global Routes (auth only, no tenant required)
+
+```typescript
+export function tenantRoutes(container: Container): Hono {
+  const router = new Hono();
+  const controller = createTenantModule(container);
 
   router.use('/*', authMiddleware);
-  router.get('/', validate('query', paginationSchema), (c) => controller.index(c));
-  router.get('/:id', (c) => controller.show(c));
-  router.post('/', validate('json', createExampleSchema), (c) => controller.store(c));
-  router.put('/:id', validate('json', updateExampleSchema), (c) => controller.update(c));
-  router.delete('/:id', (c) => controller.destroy(c));
-
+  router.post('/', validate('json', createTenantSchema), (c) => controller.create(c));
+  // ...
   return router;
+}
+```
+
+### Public Routes (no middleware)
+
+```typescript
+export function authRoutes(container: Container): Hono {
+  const router = new Hono();
+  const controller = createAuthModule(container);
+
+  // Public
+  router.post('/register', validate('json', registerSchema), (c) => controller.register(c));
+  router.post('/login', validate('json', loginSchema), (c) => controller.login(c));
+
+  // Authenticated
+  router.get('/me', authMiddleware, (c) => controller.me(c));
+  return router;
+}
+```
+
+## Repository Pattern
+
+### Global Repository (User, Tenant)
+
+```typescript
+export class UserRepository {
+  private readonly repository: Repository<User>;
+  constructor(dataSource: DataSource) {
+    this.repository = dataSource.getRepository(User);
+  }
+}
+```
+
+### Tenant-Scoped Repository (Contact)
+
+```typescript
+export class ContactRepository extends BaseTenantRepository<Contact> {
+  constructor(dataSource: DataSource, tenantId: string) {
+    super(dataSource, Contact, tenantId);
+  }
 }
 ```
 

@@ -4,8 +4,10 @@ export interface SerializedUser {
   id: string;
   firstName: string;
   lastName: string;
+  fullName: string;
   email: string;
-  role: string;
+  phone: string | null;
+  avatarUrl: string | null;
   isActive: boolean;
   lastLoginAt: string | null;
   createdAt: string;
@@ -18,8 +20,10 @@ export class UserSerializer {
       id: user.id,
       firstName: user.firstName,
       lastName: user.lastName,
+      fullName: user.fullName,
       email: user.email,
-      role: user.role,
+      phone: user.phone ?? null,
+      avatarUrl: user.avatarUrl ?? null,
       isActive: user.isActive,
       lastLoginAt: user.lastLoginAt?.toISOString() ?? null,
       createdAt: user.createdAt.toISOString(),

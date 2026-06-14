@@ -5,6 +5,61 @@ This changelog is designed to be readable by both humans and AI models.
 
 ---
 
+## [0.3.0] — 2026-06-14
+
+### Changed — Multi-Tenancy Refactor (Shared Users)
+
+- **Multi-tenancy model**: Shared users + tenant pivot (`UserTenant`) replaces row-level user tenancy
+- **User entity is now global**: No `tenant_id`, no `role` — extends `BaseEntity` instead of `TenantAwareEntity`
+- **UserRole enum**: `owner`, `manager`, `member` (was `super_admin`, `admin`, `manager`, `member`)
+- **Auth flow**: Register creates global user (no tenant), login returns tenant list + active tenant, switch-tenant endpoint
+- **JWT supports nullable tenantId/role**: `null` when user has no tenant selected
+- **Middleware split**: `authMiddleware` (JWT verify), `requireTenant` (require tenantId in JWT), `requireRole(...roles)`
+- **Routes restructured**: `/auth` (public), `/tenants` (auth-only), `/contacts` (auth + requireTenant)
+- **Auth/tenant services are global**: `container.authService()` and `container.tenantService()` take NO tenantId
+- **User fields added**: `phone`, `avatarUrl`, `lastActiveTenantId`
+
+### Added
+
+- **Tenant module** — CRUD, join by code, member management, regenerate invite code
+- **TenantInvitation system** — Invite by email with token, accept via token, expiry
+- **`BaseEntity`** — Non-tenant base entity for global entities (`User`, `Tenant`, `UserTenant`)
+- **`requireTenant` middleware** — Rejects requests without tenantId in JWT
+- **Switch tenant endpoint** — `POST /auth/switch-tenant` returns new tokens with selected tenant
+- **Login returns tenant list** — `{ user, tenants[], activeTenant, tokens }`
+- **Last active tenant** — Login auto-selects last used tenant
+
+### Technical Context (for AI agents)
+
+**Database Tables**:
+```
+users              — global (no tenant_id)
+tenants            — tenant registry (name, company, slug, code)
+user_tenants       — pivot (userId, tenantId, role, status)
+tenant_invitations — email invitation tokens
+refresh_tokens     — JWT refresh (nullable tenantId)
+contacts           — tenant-scoped (has tenant_id)
+```
+
+**Architecture Pattern**:
+```
+Container (DI) → module.ts (wiring) → Controller (handler methods)
+                                            ↑
+routes/api/xxx.ts (route definitions) ──────┘
+
+Auth/Tenant: container.authService() → AuthController (direct)
+Contacts:    container.contactService(tenantId) → ContactController (factory)
+```
+
+**Middleware Layers**:
+```
+/auth/*      → NO middleware (public routes)
+/tenants/*   → authMiddleware
+/contacts/*  → authMiddleware + requireTenant
+```
+
+---
+
 ## [0.2.0] — 2026-06-14
 
 ### Changed — Major Refactoring
@@ -27,38 +82,12 @@ This changelog is designed to be readable by both humans and AI models.
 - `src/core/interfaces/auth.interface.ts` — Shared auth types
 - `docs/swagger.yml` — Static OpenAPI spec
 - `tests/` — Full integration test suite
-  - `tests/setup.ts` — Global test config
-  - `tests/helpers/test-database.ts` — Test DB factory
-  - `tests/helpers/test-jwt.ts` — JWT token generator
-  - `tests/helpers/seed.ts` — Data seeding
-  - `tests/core/tenant.middleware.test.ts`
-  - `tests/core/auth.middleware.test.ts`
-  - `tests/modules/auth/auth.test.ts`
-  - `tests/modules/contacts/contact.test.ts`
 
 ### Removed
 
 - `@hono/zod-openapi` dependency
 - `validationHook` from `core/helpers/validator.ts`
-- Old-style module subdirectories (`controllers/`, `services/`) — replaced by hybrid structure with `entities/`, `repositories/`, `serializers/`, `validators/`, `interfaces/`, `enums/` subdirectories
-
-### Technical Context (for AI agents)
-
-**Architecture Pattern**:
-```
-Container (DI) → module.ts (wiring) → Controller (handler methods)
-                                            ↑
-routes/api/xxx.ts (route definitions) ──────┘
-
-Flow: routes/api.ts → routes/api/auth.ts → createAuthModule(container) → AuthController
-```
-
-**Key Dependencies**:
-- `hono` — HTTP framework (plain, not OpenAPIHono)
-- `@hono/zod-validator` — Request validation middleware
-- `@hono/swagger-ui` — Swagger UI renderer
-- `typeorm` — ORM with PostgreSQL
-- `zod` — Schema validation (no .openapi() decorators)
+- Old-style module subdirectories (`controllers/`, `services/`)
 
 ---
 

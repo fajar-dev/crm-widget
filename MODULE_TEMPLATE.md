@@ -1,6 +1,8 @@
 # Module Template
 
-Copy-paste templates for creating a new module. Replace `Example`/`example` with your module name.
+Copy-paste templates for creating a new **tenant-scoped** module. Replace `Example`/`example` with your module name.
+
+> **Note**: These templates are for tenant-scoped modules (most modules). For global modules (like auth, tenant), the controller takes `Service` directly instead of a `serviceFactory`, and the entity extends `BaseEntity` instead of `TenantAwareEntity`. See ARCHITECTURE.md for details.
 
 ## enums/example.enum.ts
 

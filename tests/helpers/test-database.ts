@@ -1,6 +1,9 @@
 import 'reflect-metadata';
 import { DataSource } from 'typeorm';
 import { User } from '../../src/modules/user/entities/user.entity.ts';
+import { Tenant } from '../../src/modules/tenant/entities/tenant.entity.ts';
+import { UserTenant } from '../../src/modules/tenant/entities/user-tenant.entity.ts';
+import { TenantInvitation } from '../../src/modules/tenant/entities/tenant-invitation.entity.ts';
 import { RefreshToken } from '../../src/modules/auth/entities/refresh-token.entity.ts';
 import { Contact } from '../../src/modules/contacts/entities/contact.entity.ts';
 
@@ -21,7 +24,7 @@ export async function createTestDataSource(): Promise<DataSource> {
     dropSchema: true,
     synchronize: true,
     logging: false,
-    entities: [User, RefreshToken, Contact],
+    entities: [User, Tenant, UserTenant, TenantInvitation, RefreshToken, Contact],
   });
 
   await testDataSource.initialize();

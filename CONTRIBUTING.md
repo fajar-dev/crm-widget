@@ -35,17 +35,27 @@ src/modules/deals/
 
 ### 3. Register in Container
 
+For **tenant-scoped** modules (most modules):
+
 ```typescript
 // src/container.ts
-import { DealRepository } from './modules/deals/deal.repository.ts';
-import { DealService } from './modules/deals/deal.service.ts';
-
-// Add method:
 dealService(tenantId: string): DealService {
   const repo = new DealRepository(this.dataSource, tenantId);
   return new DealService(repo);
 }
 ```
+
+For **global** modules (like auth, tenant — no tenantId):
+
+```typescript
+// src/container.ts
+tenantService(): TenantService {
+  const repo = new TenantRepository(this.dataSource);
+  return new TenantService(repo);
+}
+```
+
+> **Note**: Auth and tenant services take NO tenantId. Only tenant-scoped services (contacts, deals, etc.) require tenantId.
 
 ### 4. Create Route File
 
@@ -64,7 +74,8 @@ export function dealRoutes(container: Container): Hono {
   const router = new Hono();
   const controller = createDealModule(container);
 
-  router.use('/*', authMiddleware);
+  // Tenant-scoped routes need both authMiddleware and requireTenant
+  router.use('/*', authMiddleware, requireTenant);
   router.get('/', validate('query', paginationSchema), (c) => controller.index(c));
   router.get('/:id', (c) => controller.show(c));
   router.post('/', validate('json', createDealSchema), (c) => controller.store(c));
@@ -98,12 +109,14 @@ Add entry under the latest version.
 
 ## Module Checklist
 
-- [ ] Entity extends `TenantAwareEntity`
-- [ ] Repository extends `BaseTenantRepository`
+- [ ] Entity extends `TenantAwareEntity` (tenant-scoped) or `BaseEntity` (global)
+- [ ] Repository extends `BaseTenantRepository` (tenant-scoped) or `BaseRepository` (global)
 - [ ] Validator uses Zod (no `.openapi()` calls)
 - [ ] Controller is class-based with public handler methods (no router)
+- [ ] Controller takes `Service` directly (global) or `serviceFactory` (tenant-scoped)
 - [ ] Module wires controller via Container, returns Controller instance
 - [ ] Route file created in `routes/api/`
+- [ ] Route uses correct middleware: `authMiddleware` + `requireTenant` (tenant-scoped) or `authMiddleware` only (global)
 - [ ] Registered in `container.ts`
 - [ ] Mounted in `routes/api.ts`
 - [ ] Swagger paths added to `docs/swagger.yml`

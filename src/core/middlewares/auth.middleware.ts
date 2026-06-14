@@ -8,7 +8,7 @@ import { UserRole } from '../interfaces/auth.interface.ts';
 /**
  * JWT authentication middleware.
  * Verifies Bearer token and injects authenticated user into Hono context.
- * Also overrides tenantId from JWT payload for security.
+ * Supports nullable tenantId/role for users without a tenant.
  */
 export const authMiddleware = createMiddleware<{
   Variables: {
@@ -32,12 +32,14 @@ export const authMiddleware = createMiddleware<{
 
     c.set('user', {
       id: payload.sub,
-      tenantId: payload.tenantId,
       email: payload.email,
+      tenantId: payload.tenantId,
       role: payload.role,
     });
 
-    c.set('tenantId', payload.tenantId);
+    if (payload.tenantId) {
+      c.set('tenantId', payload.tenantId);
+    }
 
     await next();
   } catch (error) {
@@ -46,6 +48,23 @@ export const authMiddleware = createMiddleware<{
     }
     throw new UnauthorizedException('Invalid or expired token');
   }
+});
+
+/**
+ * Middleware that requires a tenant context in the JWT.
+ * Use after authMiddleware for tenant-scoped routes (e.g., contacts).
+ */
+export const requireTenant = createMiddleware<{
+  Variables: {
+    tenantId: string;
+    user: AuthUser;
+  };
+}>(async (c, next) => {
+  const user = c.get('user');
+  if (!user || !user.tenantId) {
+    throw new ForbiddenException('Tenant context is required. Please select or create a tenant first.');
+  }
+  await next();
 });
 
 /**
@@ -63,7 +82,7 @@ export function requireRole(...roles: UserRole[]) {
       throw new UnauthorizedException('Authentication required');
     }
 
-    if (!roles.includes(user.role)) {
+    if (!user.role || !roles.includes(user.role)) {
       throw new ForbiddenException('Insufficient permissions');
     }
 

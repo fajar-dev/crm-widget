@@ -1,23 +1,20 @@
 import type { UserRole } from '../../../core/interfaces/auth.interface.ts';
+import type { SerializedUser } from '../../user/serializers/user.serializer.ts';
+import type { SerializedTenant } from '../../tenant/serializers/tenant.serializer.ts';
 
-/**
- * Auth token pair returned on login/register.
- */
 export interface AuthTokens {
   accessToken: string;
   refreshToken: string;
   expiresIn: string;
 }
 
-/**
- * Auth service interface for dependency inversion.
- */
 export interface IAuthService {
-  register(tenantId: string, data: RegisterInput): Promise<{ user: any; tokens: AuthTokens }>;
-  login(tenantId: string, data: LoginInput): Promise<{ user: any; tokens: AuthTokens }>;
-  refreshToken(tenantId: string, refreshToken: string): Promise<AuthTokens>;
-  logout(tenantId: string, refreshToken: string): Promise<void>;
-  getProfile(tenantId: string, userId: string): Promise<any>;
+  register(data: RegisterInput): Promise<{ user: SerializedUser; tokens: AuthTokens }>;
+  login(data: LoginInput): Promise<{ user: SerializedUser; tenants: SerializedTenant[]; activeTenant: SerializedTenant | null; tokens: AuthTokens }>;
+  refreshToken(refreshToken: string): Promise<AuthTokens>;
+  logout(refreshToken: string): Promise<void>;
+  getProfile(userId: string): Promise<{ user: SerializedUser; activeTenant: SerializedTenant | null; tenants: SerializedTenant[] }>;
+  switchTenant(userId: string, tenantId: string): Promise<{ activeTenant: SerializedTenant; tokens: AuthTokens }>;
 }
 
 export interface RegisterInput {
@@ -25,7 +22,7 @@ export interface RegisterInput {
   lastName: string;
   email: string;
   password: string;
-  role?: UserRole;
+  phone?: string;
 }
 
 export interface LoginInput {

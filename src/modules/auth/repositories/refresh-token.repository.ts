@@ -1,47 +1,34 @@
 import type { DataSource, Repository } from 'typeorm';
 import { RefreshToken } from '../entities/refresh-token.entity.ts';
+import { MoreThan } from 'typeorm';
 
-/**
- * Refresh token repository with tenant scoping.
- */
 export class RefreshTokenRepository {
   private readonly repository: Repository<RefreshToken>;
-  private readonly tenantId: string;
 
-  constructor(dataSource: DataSource, tenantId: string) {
+  constructor(dataSource: DataSource) {
     this.repository = dataSource.getRepository(RefreshToken);
-    this.tenantId = tenantId;
   }
 
   async create(data: { token: string; userId: string; expiresAt: Date }): Promise<RefreshToken> {
-    const refreshToken = this.repository.create({
-      ...data,
-      tenantId: this.tenantId,
-    });
-    return this.repository.save(refreshToken);
+    const entity = this.repository.create(data);
+    return this.repository.save(entity);
   }
 
   async findValidToken(token: string): Promise<RefreshToken | null> {
-    return this.repository
-      .createQueryBuilder('rt')
-      .where('rt.token = :token', { token })
-      .andWhere('rt.tenant_id = :tenantId', { tenantId: this.tenantId })
-      .andWhere('rt.is_revoked = false')
-      .andWhere('rt.expires_at > :now', { now: new Date() })
-      .getOne();
+    return this.repository.findOne({
+      where: {
+        token,
+        isRevoked: false,
+        expiresAt: MoreThan(new Date()),
+      },
+    });
   }
 
   async revoke(token: string): Promise<void> {
-    await this.repository.update(
-      { token, tenantId: this.tenantId } as any,
-      { isRevoked: true } as any,
-    );
+    await this.repository.update({ token } as any, { isRevoked: true });
   }
 
   async revokeAllForUser(userId: string): Promise<void> {
-    await this.repository.update(
-      { userId, tenantId: this.tenantId } as any,
-      { isRevoked: true } as any,
-    );
+    await this.repository.update({ userId, isRevoked: false } as any, { isRevoked: true });
   }
 }

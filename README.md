@@ -1,6 +1,6 @@
 # CRM Multi-Tenant API
 
-> Multi-tenant CRM backend built with **Hono**, **Bun**, **TypeORM**, **Zod**, and **MinIO**.
+> Multi-tenant CRM backend with shared users, tenant workspaces, and invitation system. Built with **Hono**, **Bun**, **TypeORM**, **Zod**, and **MinIO**.
 
 ## Quick Start
 
@@ -45,17 +45,31 @@ src/
 ├── container.ts          # DI Container
 ├── config/               # Environment, database, MinIO
 ├── core/                 # Shared: exceptions, middlewares, helpers
+│   └── middlewares/
+│       ├── auth.middleware.ts       # JWT verification
+│       ├── require-tenant.middleware.ts  # Require tenantId in JWT
+│       └── require-role.middleware.ts    # Role-based access
 ├── routes/
 │   ├── api.ts            # Route aggregator
 │   └── api/              # Route definitions per module
-│       ├── auth.ts
-│       ├── contacts.ts
+│       ├── auth.ts       # No middleware (public)
+│       ├── tenants.ts    # authMiddleware only
+│       ├── contacts.ts   # authMiddleware + requireTenant
 │       └── users.ts
 ├── docs/swagger.yml      # OpenAPI 3.1.0 spec
 └── modules/
-    ├── auth/             # Auth module (hybrid)
-    ├── users/            # User module (hybrid)
-    └── contacts/         # Contacts module (hybrid)
+    ├── auth/             # Auth module (login, register, refresh, switch-tenant)
+    ├── user/             # User module (global, no tenant_id)
+    ├── tenant/           # Tenant module (CRUD, join, members, invitations)
+    │   ├── entities/
+    │   │   ├── tenant.entity.ts
+    │   │   ├── user-tenant.entity.ts
+    │   │   └── tenant-invitation.entity.ts
+    │   ├── repositories/
+    │   ├── serializers/
+    │   ├── validators/
+    │   └── enums/
+    └── contacts/         # Contacts module (tenant-scoped)
 
 tests/
 ├── setup.ts              # Test config
@@ -94,7 +108,15 @@ tests/
 
 ## Multi-Tenancy
 
-All API requests require `X-Tenant-ID` header with a valid UUID. Row-level tenant isolation is enforced automatically via `BaseTenantRepository`.
+Users are **global** (no `tenant_id`) and can belong to multiple tenants via a pivot table (`UserTenant`). Each tenant is a workspace with its own contacts, members, and roles.
+
+- **Auth routes** (`/auth`) — No tenant middleware, public
+- **Tenant routes** (`/tenants`) — `authMiddleware` only
+- **Contact routes** (`/contacts`) — `authMiddleware` + `requireTenant`
+- **Roles**: `OWNER`, `MANAGER`, `MEMBER` per tenant
+- **Invitation system**: Join by code or email-based invitation
+- **JWT**: Contains nullable `tenantId` and `role` (null when user has no tenant)
+- **Tenant-scoped data**: Contacts use `BaseTenantRepository` for row-level isolation
 
 ## Documentation
 
