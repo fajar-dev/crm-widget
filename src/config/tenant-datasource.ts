@@ -1,7 +1,6 @@
 import 'reflect-metadata';
 import { DataSource } from 'typeorm';
 import type { EnvConfig } from './config.ts';
-import { Contact } from '../modules/contacts/entities/contact.entity.ts';
 import { WidgetSettings } from '../modules/chatbot/entities/widget-settings.entity.ts';
 import { ChatbotSettings } from '../modules/chatbot/entities/chatbot-settings.entity.ts';
 import { ChatbotFormField } from '../modules/chatbot/entities/chatbot-form-field.entity.ts';
@@ -17,7 +16,6 @@ import { KnowledgeBase } from '../modules/knowledge/entities/knowledge-base.enti
  * Add new tenant-scoped entities here.
  */
 const TENANT_ENTITIES = [
-  Contact,
   WidgetSettings,
   ChatbotSettings,
   ChatbotFormField,
@@ -62,12 +60,20 @@ export class TenantDataSourceManager {
       password: this.dbConfig.password,
       database: this.dbConfig.database,
       schema: schemaName,
-      synchronize: false,
+      synchronize: true,
       logging: this.dbConfig.logging,
       entities: TENANT_ENTITIES,
     });
 
     await ds.initialize();
+
+    // Ensure vector extension is available in this schema
+    try {
+      await ds.query(`CREATE EXTENSION IF NOT EXISTS vector SCHEMA "${schemaName}"`);
+    } catch {
+      // Extension may already exist or not be needed
+    }
+
     this.cache.set(schemaName, ds);
     return ds;
   }

@@ -5,7 +5,6 @@ import { authMiddleware, requireTenant } from '../core/middlewares/auth.middlewa
 import { Container } from '../container.ts';
 import { authRoutes } from './api/auth.ts';
 import { tenantRoutes } from './api/tenants.ts';
-import { contactRoutes } from './api/contacts.ts';
 import { widgetSettingsRoutes } from './api/widget-settings.ts';
 import { chatbotSettingsRoutes } from './api/chatbot-settings.ts';
 import { chatbotFormFieldRoutes } from './api/chatbot-form-fields.ts';
@@ -29,9 +28,6 @@ export function createApiRouter(sharedDataSource: DataSource, tenantDataSourceMa
   // Tenant routes — auth required, NO tenant middleware
   api.route('/tenants', tenantRoutes(container));
 
-  // Contact routes — auth + tenant required
-  api.use('/contacts/*', authMiddleware, requireTenant);
-  api.route('/contacts', contactRoutes(container));
 
   // Widget settings routes — auth + tenant required
   api.use('/widget-settings/*', authMiddleware, requireTenant);

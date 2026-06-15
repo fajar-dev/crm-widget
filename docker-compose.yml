@@ -47,10 +47,10 @@ services:
     container_name: crm-api
     restart: unless-stopped
     ports:
-      - "${PORT:-3000}:3000"
+      - "${PORT:-4000}:${PORT:-4000}"
     environment:
       NODE_ENV: ${NODE_ENV:-development}
-      PORT: 3000
+      PORT: ${PORT:-4000}
       APP_NAME: ${APP_NAME:-CRM Multi-Tenant}
       DB_HOST: postgres
       DB_PORT: 5432

@@ -2,10 +2,8 @@ import type { DataSource } from 'typeorm';
 import { User } from '../../src/modules/user/entities/user.entity.ts';
 import { Tenant } from '../../src/modules/tenant/entities/tenant.entity.ts';
 import { UserTenant } from '../../src/modules/tenant/entities/user-tenant.entity.ts';
-import { Contact } from '../../src/modules/contacts/entities/contact.entity.ts';
 import { UserRole } from '../../src/core/interfaces/auth.interface.ts';
 import { MembershipStatus } from '../../src/modules/tenant/enums/tenant.enum.ts';
-import { ContactStatus, ContactSource } from '../../src/modules/contacts/enums/contact.enum.ts';
 import { TEST_TENANT_ID, TEST_USER_ID, TEST_TENANT_CODE, TEST_TENANT_SLUG } from './test-jwt.ts';
 
 export async function seedUser(ds: DataSource, overrides?: Partial<User>): Promise<User> {
@@ -64,27 +62,4 @@ export async function seedFullContext(ds: DataSource): Promise<{ user: User; ten
   const tenant = await seedTenant(ds);
   const membership = await seedUserTenant(ds);
   return { user, tenant, membership };
-}
-
-/**
- * Seed contacts into a TENANT DataSource (per-tenant schema).
- * No tenantId needed — isolation is at schema level.
- */
-export async function seedContacts(tenantDs: DataSource, count = 2): Promise<Contact[]> {
-  const repo = tenantDs.getRepository(Contact);
-  const contacts: Partial<Contact>[] = [];
-
-  for (let i = 0; i < count; i++) {
-    contacts.push({
-      firstName: `Contact${i + 1}`,
-      lastName: `Test`,
-      email: `contact${i + 1}@example.com`,
-      phone: `+6281234567${i}`,
-      company: `Company ${i + 1}`,
-      status: ContactStatus.LEAD,
-      source: ContactSource.OTHER,
-    });
-  }
-
-  return repo.save(repo.create(contacts));
 }

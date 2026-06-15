@@ -5,7 +5,15 @@ import { Tenant } from '../../src/modules/tenant/entities/tenant.entity.ts';
 import { UserTenant } from '../../src/modules/tenant/entities/user-tenant.entity.ts';
 import { TenantInvitation } from '../../src/modules/tenant/entities/tenant-invitation.entity.ts';
 import { RefreshToken } from '../../src/modules/auth/entities/refresh-token.entity.ts';
-import { Contact } from '../../src/modules/contacts/entities/contact.entity.ts';
+import { WidgetSettings } from '../../src/modules/chatbot/entities/widget-settings.entity.ts';
+import { ChatbotSettings } from '../../src/modules/chatbot/entities/chatbot-settings.entity.ts';
+import { ChatbotFormField } from '../../src/modules/chatbot/entities/chatbot-form-field.entity.ts';
+import { ChatbotSession } from '../../src/modules/chatbot/entities/chatbot-session.entity.ts';
+import { ChatbotSessionValue } from '../../src/modules/chatbot/entities/chatbot-session-value.entity.ts';
+import { ChatbotConversation } from '../../src/modules/conversation/entities/chatbot-conversation.entity.ts';
+import { ChatbotMessage } from '../../src/modules/conversation/entities/chatbot-message.entity.ts';
+import { KnowledgeCategory } from '../../src/modules/knowledge/entities/knowledge-category.entity.ts';
+import { KnowledgeBase } from '../../src/modules/knowledge/entities/knowledge-base.entity.ts';
 
 function getDbConfig() {
   return {
@@ -40,7 +48,7 @@ export async function createTestDataSource(): Promise<DataSource> {
 }
 
 /**
- * Create tenant DataSource for tenant-scoped entities (contacts, etc.)
+ * Create tenant DataSource for tenant-scoped entities (chatbot, knowledge, etc.)
  */
 export async function createTestTenantDataSource(): Promise<DataSource> {
   const existing = (globalThis as any).__test_tenant_ds__ as DataSource | undefined;
@@ -68,7 +76,17 @@ export async function createTestTenantDataSource(): Promise<DataSource> {
     dropSchema: true,
     synchronize: true,
     logging: false,
-    entities: [Contact],
+    entities: [
+      WidgetSettings,
+      ChatbotSettings,
+      ChatbotFormField,
+      ChatbotSession,
+      ChatbotSessionValue,
+      ChatbotConversation,
+      ChatbotMessage,
+      KnowledgeCategory,
+      KnowledgeBase,
+    ],
   });
 
   await ds.initialize();

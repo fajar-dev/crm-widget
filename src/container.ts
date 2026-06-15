@@ -7,8 +7,6 @@ import { UserTenantRepository } from './modules/tenant/repositories/user-tenant.
 import { TenantInvitationRepository } from './modules/tenant/repositories/tenant-invitation.repository.ts';
 import { AuthService } from './modules/auth/auth.service.ts';
 import { TenantService } from './modules/tenant/tenant.service.ts';
-import { ContactRepository } from './modules/contacts/repositories/contact.repository.ts';
-import { ContactService } from './modules/contacts/contact.service.ts';
 import { WidgetSettingsRepository } from './modules/chatbot/repositories/widget-settings.repository.ts';
 import { ChatbotSettingsRepository } from './modules/chatbot/repositories/chatbot-settings.repository.ts';
 import { ChatbotFormFieldRepository } from './modules/chatbot/repositories/chatbot-form-field.repository.ts';
@@ -77,12 +75,6 @@ export class Container {
   }
 
   // ── Tenant-scoped services (per-tenant schema) ─────
-
-  async contactService(tenantSlug: string): Promise<ContactService> {
-    const ds = await this.tenantDataSourceManager.getDataSource(tenantSlug);
-    const repo = new ContactRepository(ds);
-    return new ContactService(repo);
-  }
 
   async chatbotService(tenantSlug: string): Promise<ChatbotService> {
     const ds = await this.tenantDataSourceManager.getDataSource(tenantSlug);
